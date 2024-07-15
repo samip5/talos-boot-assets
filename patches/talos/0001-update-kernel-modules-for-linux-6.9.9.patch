@@ -1,0 +1,33 @@
+From 1d53462cf11bf8f9887e345d6666dc9af84c8244 Mon Sep 17 00:00:00 2001
+From: Jean-Francois Roy <jf@devklog.net>
+Date: Mon, 15 Jul 2024 13:41:07 -0700
+Subject: [PATCH] update kernel modules for linux 6.9.9
+
+---
+ hack/modules-amd64.txt | 10 ----------
+ 1 file changed, 10 deletions(-)
+
+diff --git a/hack/modules-amd64.txt b/hack/modules-amd64.txt
+index 0537e1f54..610343fa7 100644
+--- a/hack/modules-amd64.txt
++++ b/hack/modules-amd64.txt
+@@ -12,16 +12,6 @@ kernel/drivers/ata/pata_oldpiix.ko
+ kernel/drivers/ata/pata_sch.ko
+ kernel/drivers/block/nbd.ko
+ kernel/drivers/char/ipmi/ipmi_watchdog.ko
+-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+-kernel/drivers/gpu/drm/amd/amdxcp/amdxcp.ko
+-kernel/drivers/gpu/drm/display/drm_display_helper.ko
+-kernel/drivers/gpu/drm/drm_buddy.ko
+-kernel/drivers/gpu/drm/drm_exec.ko
+-kernel/drivers/gpu/drm/drm_suballoc_helper.ko
+-kernel/drivers/gpu/drm/drm_ttm_helper.ko
+-kernel/drivers/gpu/drm/i915/i915.ko
+-kernel/drivers/gpu/drm/scheduler/gpu-sched.ko
+-kernel/drivers/gpu/drm/ttm/ttm.ko
+ kernel/drivers/hid/hid-a4tech.ko
+ kernel/drivers/hid/hid-apple.ko
+ kernel/drivers/hid/hid-belkin.ko
+-- 
+2.45.2
+
