@@ -184,7 +184,7 @@ jobs:
             PLATFORM="linux/amd64" \
             USERNAME="${{ github.actor }}" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
-            PKG_KERNEL="ghcr.io/${{ github.actor }}/kernel:${{ needs.check-releases.outputs.talosReleaseTag }}" \
+            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos-kernel:${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PUSH="true"
 
   build-boot-assets:

@@ -1,0 +1,36 @@
+From 8eb32d32bda76d24070943bff51cf8193ee63794 Mon Sep 17 00:00:00 2001
+From: Jean-Francois Roy <jf@devklog.net>
+Date: Mon, 15 Jul 2024 15:22:14 -0700
+Subject: [PATCH 1/5] rename kernel image to talos-kernel
+
+---
+ Makefile | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile b/Makefile
+index a06e67b..c6108ca 100644
+--- a/Makefile
++++ b/Makefile
+@@ -75,7 +75,7 @@ TARGETS += socat
+ TARGETS += syslinux
+ TARGETS += util-linux
+ TARGETS += xfsprogs
+-TARGETS += kernel
++# TARGETS += kernel
+ TARGETS += drbd-pkg
+ TARGETS += gasket-driver-pkg
+ TARGETS += nvidia-open-gpu-kernel-modules-pkg
+@@ -171,6 +171,10 @@ $(TARGETS) $(NONFREE_TARGETS):
+ deps.png:  ## Generates a dependency graph of the Pkgfile.
+ 	@$(BLDR) graph | dot -Tpng -o deps.png
+ 
++.PHONY: kernel
++kernel: 
++	@$(MAKE) docker-$@ TARGET_ARGS="--tag=$(REGISTRY_AND_USERNAME)/talos-kernel:$(TAG) --push=$(PUSH)"
++
+ kernel-olddefconfig:
+ 	@$(MAKE) local-kernel-build TARGET_ARGS="--build-arg=KERNEL_TARGET=olddefconfig" PLATFORM=linux/amd64 DEST="kernel/build"
+ 	@$(MAKE) local-kernel-build TARGET_ARGS="--build-arg=KERNEL_TARGET=olddefconfig" PLATFORM=linux/arm64 DEST="kernel/build"
+-- 
+2.45.2
+

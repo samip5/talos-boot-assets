@@ -1,7 +1,7 @@
-From 6edc12f5ec34b084f0eb36fdd0674eebdab9c1ec Mon Sep 17 00:00:00 2001
+From 33c454dfb95b39a833ce85e8b3d4cd455631f0b2 Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Sun, 14 Jul 2024 21:49:10 -0700
-Subject: [PATCH 3/4] add exclusions for linux 6.9.9 to kspp checks
+Subject: [PATCH 4/5] add exclusions for linux 6.9.9 to kspp checks
 
 ---
  kernel/build/scripts/filter-hardened-check.py | 2 ++
