@@ -15,11 +15,17 @@ concurrency:
   group: ${{ github.actor }}-build
 
 env:
-  TALOS_VERSION : "${{ inputs.version || 'latest' }}"
-  # renovate: depName=ghcr.io/siderolabs/intel-ucode
-  INTEL_UCODE_VERSION: 20240531
-  # renovate: depName=ghcr.io/siderolabs/i915-ucode
-  I915_UCODE_VERSION: 20240513
+  TALOS_VERSION: "${{ inputs.version || 'latest' }}"
+  # renovate: depName=ghcr.io/siderolabs/amd-ucode
+  AMD_UCODE_VERSION: 20240513
+  # renovate: depName=ghcr.io/siderolabs/iscsi-tools
+  ISCSI_TOOLS_VERSION: v0.1.4
+  # renovate: depName=ghcr.io/siderolabs/nvidia-container-toolkit
+  NVIDIA_CONTAINER_TOOLKIT_VERSION: 535.129.03-v1.14.6
+  # renovate: depName=ghcr.io/siderolabs/nvidia-open-gpu-kernel-modules
+  NVIDIA_OPEN_GPU_KERNEL_MODULES_VERSION: 535.129.03-v1.7.5
+  # renovate: depName=ghcr.io/siderolabs/util-linux-tools
+  UTIL_LINUX_TOOLS_VERSION: 2.39.3
 
 jobs:
   check-releases:
@@ -67,7 +73,7 @@ jobs:
       talosReleaseBody: ${{ steps.talos-release-body.outputs.talos_release_body }}
 
   build-kernel:
-    needs: [ check-releases ]
+    needs: [check-releases]
     if: needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch'
     name: Build kernel image
     runs-on: ubuntu-latest
@@ -133,7 +139,7 @@ jobs:
             PUSH="true"
 
   build-installer:
-    needs: [ check-releases, build-kernel ]
+    needs: [check-releases, build-kernel]
     if: needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch'
     name: Build installer image
     runs-on: ubuntu-latest
@@ -187,7 +193,7 @@ jobs:
             PUSH="true"
 
   build-boot-assets:
-    needs: [ check-releases, build-installer ]
+    needs: [check-releases, build-installer]
     if: needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch'
     name: Build boot assets
     runs-on: ubuntu-latest
@@ -202,13 +208,23 @@ jobs:
         - /dev:/dev
 
     steps:
-      - name: Build amd64 installer with I915 & Intel Ucode
+      - name: Build amd64 installer
         run: |
           /bin/imager installer \
             --arch amd64 \
             --base-installer-image ghcr.io/${{ github.actor }}/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
-            --system-extension-image ghcr.io/siderolabs/i915-ucode:${{ env.I915_UCODE_VERSION }} \
-            --system-extension-image ghcr.io/siderolabs/intel-ucode:${{ env.INTEL_UCODE_VERSION }}
+            --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
+            --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
+            --system-extension-image ghcr.io/siderolabs/nvidia-container-toolkit:${{ env.NVIDIA_CONTAINER_TOOLKIT_VERSION }} \
+            --system-extension-image ghcr.io/siderolabs/nvidia-open-gpu-kernel-modules:${{ env.NVIDIA_OPEN_GPU_KERNEL_MODULES_VERSION }} \
+            --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
+            --extra-kernel-arg amd_pstate=active \
+            --extra-kernel-arg console=tty0 \
+            --extra-kernel-arg console=ttyS0 \
+            --extra-kernel-arg talos.network.interface.ignore=eth0 \
+            --extra-kernel-arg talos.network.interface.ignore=enp66s0f0 \
+            --extra-kernel-arg talos.network.interface.ignore=eth1 \
+            --extra-kernel-arg talos.network.interface.ignore=enp66s0f1
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
@@ -219,7 +235,7 @@ jobs:
           retention-days: 1
 
   push-installer-image:
-    needs: [ check-releases, build-boot-assets ]
+    needs: [check-releases, build-boot-assets]
     name: Push installer image
     runs-on: ubuntu-latest
 
@@ -256,7 +272,7 @@ jobs:
             ghcr.io/${{ github.actor }}/installer:${{ needs.check-releases.outputs.talosReleaseTag }}
 
   create-release:
-    needs: [ check-releases, push-installer-image ]
+    needs: [check-releases, push-installer-image]
     if: needs.check-releases.outputs.newTalosReleaseFound
     name: Create a new release
     runs-on: ubuntu-latest
