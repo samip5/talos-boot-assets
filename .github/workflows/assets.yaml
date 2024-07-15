@@ -67,9 +67,29 @@ jobs:
       newTalosReleaseFound: ${{ steps.compare-releases.outputs.compare_result }}
       talosReleaseTag: ${{ steps.talos-release.outputs.talos_release_tag }}
 
-  build-kernel:
+  check-kernel:
     needs: [check-releases]
-    if: needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch'
+    name: Check kernel image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check kernel image
+        id: inspect
+        run: |
+          set +e
+          docker manifest inspect ghcr.io/${{ github.actor }}/talos-kernel:${{ needs.check-releases.outputs.talosReleaseTag }} > /dev/null
+          echo "inspect_status=$?" >> $GITHUB_OUTPUT
+    outputs:
+      kernel_not_found: ${{ steps.inspect.outputs.inspect_status }}
+
+  build-kernel:
+    needs: [check-releases, check-kernel]
+    if: needs.check-kernel.outputs.kernel_not_found || needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch'
     name: Build kernel image
     runs-on: buildjet-32vcpu-ubuntu-2204
 
@@ -135,7 +155,7 @@ jobs:
 
   build-installer:
     needs: [check-releases, build-kernel]
-    if: needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch'
+    if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch') }}
     name: Build installer image
     runs-on: ubuntu-latest
 
