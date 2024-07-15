@@ -1,0 +1,31 @@
+From 0ddc6c08e294ca371f71628679c52f32725debf1 Mon Sep 17 00:00:00 2001
+From: Jean-Francois Roy <jf@devklog.net>
+Date: Mon, 15 Jul 2024 13:41:07 -0700
+Subject: [PATCH] update kernel modules
+
+---
+ hack/modules-amd64.txt | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/hack/modules-amd64.txt b/hack/modules-amd64.txt
+index 0537e1f54..3651fd919 100644
+--- a/hack/modules-amd64.txt
++++ b/hack/modules-amd64.txt
+@@ -12,14 +12,11 @@ kernel/drivers/ata/pata_oldpiix.ko
+ kernel/drivers/ata/pata_sch.ko
+ kernel/drivers/block/nbd.ko
+ kernel/drivers/char/ipmi/ipmi_watchdog.ko
+-kernel/drivers/gpu/drm/amd/amdgpu/amdgpu.ko
+-kernel/drivers/gpu/drm/amd/amdxcp/amdxcp.ko
+ kernel/drivers/gpu/drm/display/drm_display_helper.ko
+ kernel/drivers/gpu/drm/drm_buddy.ko
+ kernel/drivers/gpu/drm/drm_exec.ko
+ kernel/drivers/gpu/drm/drm_suballoc_helper.ko
+ kernel/drivers/gpu/drm/drm_ttm_helper.ko
+-kernel/drivers/gpu/drm/i915/i915.ko
+ kernel/drivers/gpu/drm/scheduler/gpu-sched.ko
+ kernel/drivers/gpu/drm/ttm/ttm.ko
+ kernel/drivers/hid/hid-a4tech.ko
+-- 
+2.45.2
+
