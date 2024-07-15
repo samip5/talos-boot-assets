@@ -71,7 +71,7 @@ jobs:
     needs: [check-releases]
     if: needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch'
     name: Build kernel image
-    runs-on: ubuntu-latest
+    runs-on: buildjet-32vcpu-ubuntu-2204
 
     steps:
       - name: Get pkgs release tag
