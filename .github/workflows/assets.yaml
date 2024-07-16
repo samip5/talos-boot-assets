@@ -8,6 +8,11 @@ on:
         description: Talos version
         default: latest
         required: false
+      force_build:
+        description: Force build
+        type: boolean
+        default: false
+        required: false
   schedule:
     - cron: "0 * * * *"
 
@@ -20,10 +25,6 @@ env:
   AMD_UCODE_VERSION: 20240513
   # renovate: depName=ghcr.io/siderolabs/iscsi-tools
   ISCSI_TOOLS_VERSION: v0.1.4
-  # renovate: depName=ghcr.io/siderolabs/nvidia-container-toolkit
-  NVIDIA_CONTAINER_TOOLKIT_VERSION: 535.129.03-v1.14.6
-  # renovate: depName=ghcr.io/siderolabs/nvidia-open-gpu-kernel-modules
-  NVIDIA_OPEN_GPU_KERNEL_MODULES_VERSION: 535.129.03-v1.7.5
   # renovate: depName=ghcr.io/siderolabs/util-linux-tools
   UTIL_LINUX_TOOLS_VERSION: 2.39.3
 
@@ -67,40 +68,20 @@ jobs:
       newTalosReleaseFound: ${{ steps.compare-releases.outputs.compare_result }}
       talosReleaseTag: ${{ steps.talos-release.outputs.talos_release_tag }}
 
-  check-kernel:
+  build-pkgs:
     needs: [check-releases]
-    name: Check kernel image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.2.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Check kernel image
-        id: inspect
-        run: |
-          set +e
-          docker manifest inspect ghcr.io/${{ github.actor }}/talos-kernel:${{ needs.check-releases.outputs.talosReleaseTag }} > /dev/null
-          echo "inspect_status=$?" >> $GITHUB_OUTPUT
-    outputs:
-      kernel_not_found: ${{ steps.inspect.outputs.inspect_status }}
-
-  build-kernel:
-    needs: [check-releases, check-kernel]
-    if: needs.check-kernel.outputs.kernel_not_found || needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch'
-    name: Build kernel image
+    if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
+    name: Build packages
     runs-on: buildjet-32vcpu-ubuntu-2204
 
     steps:
-      - name: Get pkgs release tag
+      - name: Get release tag
         id: pkgs-release
         run: |
           release=release-$(grep -Eo '[0-9]\.[0-9]+' <<< '${{ needs.check-releases.outputs.talosReleaseTag }}')
           echo "release=$release" >> $GITHUB_OUTPUT
 
-      - name: Checkout pkgs
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           repository: siderolabs/pkgs
@@ -124,12 +105,63 @@ jobs:
             git apply -v $file
           done < <(find "./patches/patches/pkgs" -type f -name "*.patch" | sort)
 
-      - name: Maximize build space
-        uses: jlumbroso/free-disk-space@main
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3.2.0
         with:
-          large-packages: true
-          docker-images: true
-          swap-storage: true
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        run: |
+          make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg \
+            PLATFORM=linux/amd64 \
+            USERNAME="${{ github.actor }}" \
+            TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
+            PUSH="true"
+
+  build-extensions:
+    needs: [check-releases, build-pkgs]
+    if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
+    name: Build extensions
+    runs-on: buildjet-32vcpu-ubuntu-2204
+
+    steps:
+      - name: Get release tag
+        id: extensions-release
+        run: |
+          release=release-$(grep -Eo '[0-9]\.[0-9]+' <<< '${{ needs.check-releases.outputs.talosReleaseTag }}')
+          echo "release=$release" >> $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: siderolabs/extensions
+          ref: ${{ steps.extensions-release.outputs.release }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout patches
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: patches
+          sparse-checkout: patches/extensions
+          sparse-checkout-cone-mode: false
+
+      - name: Apply patches
+        run: |
+          while IFS= read -r file; do
+            echo "==> Adding $file"
+            git apply -v $file
+          done < <(find "./patches/patches/extensions" -type f -name "*.patch" | sort)
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -144,27 +176,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build kernel
+      - name: Build
         run: |
-          make kernel \
+          make nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
             PLATFORM=linux/amd64 \
-            USERNAME="${{ github.actor }}" \
+            PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
+            PKGS_PREFIX="ghcr.io/${{ github.actor }}" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
-            PUSH="true"
-
-      - name: Build nvidia-open-gpu-kernel-modules-pkg
-        run: |
-          make nvidia-open-gpu-kernel-modules-pkg \
-            PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}" \
-            TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
-            PUSH="true"
+            PUSH=true
 
   build-installer:
-    needs: [check-releases, build-kernel]
-    if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch') }}
+    needs: [check-releases, build-pkgs, build-extensions]
+    if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build installer image
-    runs-on: ubuntu-latest
+    runs-on: buildjet-32vcpu-ubuntu-2204
 
     steps:
       - name: Checkout
@@ -205,7 +231,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build installer image
+      - name: Build
         run: |
           make installer \
             PLATFORM="linux/amd64" \
@@ -216,9 +242,9 @@ jobs:
 
   build-boot-assets:
     needs: [check-releases, build-installer]
-    if: needs.check-releases.outputs.newTalosReleaseFound || github.event_name == 'workflow_dispatch'
+    if: needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build
     name: Build boot assets
-    runs-on: ubuntu-latest
+    runs-on: buildjet-32vcpu-ubuntu-2204
 
     permissions:
       contents: write
@@ -237,8 +263,8 @@ jobs:
             --base-installer-image ghcr.io/${{ github.actor }}/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
             --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
             --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
-            --system-extension-image ghcr.io/siderolabs/nvidia-container-toolkit:${{ env.NVIDIA_CONTAINER_TOOLKIT_VERSION }} \
-            --system-extension-image ghcr.io/siderolabs/nvidia-open-gpu-kernel-modules:${{ env.NVIDIA_OPEN_GPU_KERNEL_MODULES_VERSION }} \
+            --system-extension-image ghcr.io/${{ github.actor }}/nvidia-container-toolkit:${{ needs.check-releases.outputs.talosReleaseTag }} \
+            --system-extension-image ghcr.io/${{ github.actor }}/nvidia-open-gpu-kernel-modules:${{ needs.check-releases.outputs.talosReleaseTag }} \
             --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
             --extra-kernel-arg amd_pstate=active \
             --extra-kernel-arg console=tty0 \
@@ -294,12 +320,6 @@ jobs:
         with:
           name: secureboot-installer
           path: /tmp/talos-build-assets
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3.2.0
