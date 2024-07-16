@@ -1,7 +1,7 @@
 From ad51a7b5930798c0f61f1d5b3e7ed18c32680ed6 Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Sun, 14 Jul 2024 17:22:19 -0700
-Subject: [PATCH 2/5] update bldr to 0.3.1
+Subject: [PATCH 2/6] update bldr to 0.3.1
 
 ---
  Makefile | 2 +-

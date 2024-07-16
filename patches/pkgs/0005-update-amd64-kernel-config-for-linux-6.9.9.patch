@@ -1,7 +1,7 @@
 From 279751ae279d6ff79ecb898473cebe2f0383d352 Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Sun, 14 Jul 2024 18:13:46 -0700
-Subject: [PATCH 5/5] update amd64 kernel config for linux 6.9.9
+Subject: [PATCH 5/6] update amd64 kernel config for linux 6.9.9
 
 ---
  kernel/build/config-amd64 | 380 +++++++++++++++++++++-----------------

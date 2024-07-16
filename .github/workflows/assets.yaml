@@ -100,13 +100,12 @@ jobs:
           release=release-$(grep -Eo '[0-9]\.[0-9]+' <<< '${{ needs.check-releases.outputs.talosReleaseTag }}')
           echo "release=$release" >> $GITHUB_OUTPUT
 
-      - name: Checkout
+      - name: Checkout pkgs
         uses: actions/checkout@v4
         with:
           repository: siderolabs/pkgs
           ref: ${{ steps.pkgs-release.outputs.release }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
 
       - name: Checkout patches
         uses: actions/checkout@v4
@@ -145,9 +144,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build kernel image
+      - name: Build kernel
         run: |
           make kernel \
+            PLATFORM=linux/amd64 \
+            USERNAME="${{ github.actor }}" \
+            TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
+            PUSH="true"
+
+      - name: Build nvidia-open-gpu-kernel-modules-pkg
+        run: |
+          make nvidia-open-gpu-kernel-modules-pkg \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
