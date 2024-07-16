@@ -1,7 +1,7 @@
-From d02810f2b00506a23513db5c4e1afdc0f4fd579f Mon Sep 17 00:00:00 2001
+From 76f33a8d0e38724b176f2206d6cdf8957da09ce4 Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Mon, 15 Jul 2024 19:30:44 -0700
-Subject: [PATCH 6/6] update nvidia driver to 550.100
+Subject: [PATCH 5/5] update nvidia driver to 550.100
 
 ---
  Pkgfile | 6 +++---
