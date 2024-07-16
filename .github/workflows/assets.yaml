@@ -123,7 +123,7 @@ jobs:
       - name: Build
         run: |
           make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg \
-            BUILD="docker buildx build --cache-from type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},compression=zstd --cache-to type=registry,ref=ghcr.io/${{ github.actor }}/talos-cache:${{ needs.check-releases.outputs.talosReleaseTag }},mode=min,compression=zstd" \
+            BUILD="docker buildx build --cache-from type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},compression=zstd --cache-to type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},mode=min,compression=zstd" \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
@@ -182,7 +182,7 @@ jobs:
       - name: Build
         run: |
           make nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
-            BUILD="docker buildx build --cache-from type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},compression=zstd --cache-to type=registry,ref=ghcr.io/${{ github.actor }}/talos-cache:${{ needs.check-releases.outputs.talosReleaseTag }},mode=min,compression=zstd" \
+            BUILD="docker buildx build --cache-from type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},compression=zstd --cache-to type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},mode=min,compression=zstd" \
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
@@ -238,11 +238,11 @@ jobs:
       - name: Build
         run: |
           make installer \
-            BUILD="docker buildx build --cache-from type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},compression=zstd --cache-to type=registry,ref=ghcr.io/${{ github.actor }}/talos-cache:${{ needs.check-releases.outputs.talosReleaseTag }},mode=min,compression=zstd" \
+            BUILD="docker buildx build --cache-from type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},compression=zstd --cache-to type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},mode=min,compression=zstd" \
             PLATFORM="linux/amd64" \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
-            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos-kernel:${{ needs.check-releases.outputs.talosReleaseTag }}" \
+            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PUSH="true"
 
   build-boot-assets:
@@ -255,7 +255,7 @@ jobs:
       contents: write
 
     container:
-      image: ghcr.io/${{ github.actor }}/installer:${{ needs.check-releases.outputs.talosReleaseTag }}
+      image: ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }}
       options: --privileged
       volumes:
         - /dev:/dev
@@ -265,11 +265,11 @@ jobs:
         run: |
           /bin/imager secureboot-installer \
             --arch amd64 \
-            --base-installer-image ghcr.io/${{ github.actor }}/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
+            --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
             --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
             --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
-            --system-extension-image ghcr.io/${{ github.actor }}/nvidia-container-toolkit:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.NVIDIA_CONTAINER_TOOLKIT_VERSION }} \
-            --system-extension-image ghcr.io/${{ github.actor }}/nvidia-open-gpu-kernel-modules:${{ env.NVIDIA_DRIVER_VERSION }}-${{ needs.check-releases.outputs.talosReleaseTag }} \
+            --system-extension-image ghcr.io/${{ github.actor }}/talos/nvidia-container-toolkit:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.NVIDIA_CONTAINER_TOOLKIT_VERSION }} \
+            --system-extension-image ghcr.io/${{ github.actor }}/talos/nvidia-open-gpu-kernel-modules:${{ env.NVIDIA_DRIVER_VERSION }}-${{ needs.check-releases.outputs.talosReleaseTag }} \
             --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
             --extra-kernel-arg amd_pstate=active \
             --extra-kernel-arg console=tty0 \
@@ -283,7 +283,7 @@ jobs:
         run: |
           /bin/imager secureboot-iso \
             --arch amd64 \
-            --base-installer-image ghcr.io/${{ github.actor }}/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
+            --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
             --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
             --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
             --extra-kernel-arg console=tty0 \
@@ -339,7 +339,7 @@ jobs:
           crane push \
             --platform linux/amd64 \
             /tmp/talos-build-assets/secureboot-installer-amd64.tar \
-            ghcr.io/${{ github.actor }}/secureboot-installer:${{ needs.check-releases.outputs.talosReleaseTag }}
+            ghcr.io/${{ github.actor }}/talos/secureboot-installer:${{ needs.check-releases.outputs.talosReleaseTag }}
 
   create-release:
     needs: [check-releases, build-boot-assets, push-installer-image]
