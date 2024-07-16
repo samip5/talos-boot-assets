@@ -25,6 +25,8 @@ env:
   AMD_UCODE_VERSION: 20240513
   # renovate: depName=ghcr.io/siderolabs/iscsi-tools
   ISCSI_TOOLS_VERSION: v0.1.4
+  NVIDIA_CONTAINER_TOOLKIT_VERSION: v1.14.6
+  NVIDIA_DRIVER_VERSION: 550.100
   # renovate: depName=ghcr.io/siderolabs/util-linux-tools
   UTIL_LINUX_TOOLS_VERSION: 2.39.3
 
@@ -266,8 +268,8 @@ jobs:
             --base-installer-image ghcr.io/${{ github.actor }}/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
             --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
             --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
-            --system-extension-image ghcr.io/${{ github.actor }}/nvidia-container-toolkit:${{ needs.check-releases.outputs.talosReleaseTag }} \
-            --system-extension-image ghcr.io/${{ github.actor }}/nvidia-open-gpu-kernel-modules:${{ needs.check-releases.outputs.talosReleaseTag }} \
+            --system-extension-image ghcr.io/${{ github.actor }}/nvidia-container-toolkit:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.NVIDIA_CONTAINER_TOOLKIT_VERSION }} \
+            --system-extension-image ghcr.io/${{ github.actor }}/nvidia-open-gpu-kernel-modules:${{ env.NVIDIA_DRIVER_VERSION }}-${{ needs.check-releases.outputs.talosReleaseTag }} \
             --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
             --extra-kernel-arg amd_pstate=active \
             --extra-kernel-arg console=tty0 \
