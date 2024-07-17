@@ -123,7 +123,7 @@ jobs:
       - name: Build
         run: |
           make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg \
-            BUILD="docker buildx build --cache-from type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},compression=zstd --cache-to type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},mode=min,compression=zstd" \
+            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha" \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
@@ -182,7 +182,7 @@ jobs:
       - name: Build
         run: |
           make nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
-            BUILD="docker buildx build --cache-from type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},compression=zstd --cache-to type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},mode=min,compression=zstd" \
+            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha" \
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
@@ -238,7 +238,7 @@ jobs:
       - name: Build
         run: |
           make installer \
-            BUILD="docker buildx build --cache-from type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},compression=zstd --cache-to type=registry,ref=ghcr.io/${{ github.actor }}/talos/buildcache:${{ needs.check-releases.outputs.talosReleaseTag }},mode=min,compression=zstd" \
+            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha" \
             PLATFORM="linux/amd64" \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
