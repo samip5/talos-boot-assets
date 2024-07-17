@@ -249,7 +249,7 @@ jobs:
     needs: [check-releases, build-installer]
     if: needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build
     name: Build boot assets
-    runs-on: buildjet-32vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
 
     permissions:
       contents: write
