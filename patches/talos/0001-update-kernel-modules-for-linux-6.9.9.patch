@@ -1,7 +1,7 @@
-From 1d53462cf11bf8f9887e345d6666dc9af84c8244 Mon Sep 17 00:00:00 2001
+From 93766ae13d838d3a4319578c55976f09d8ef324b Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Mon, 15 Jul 2024 13:41:07 -0700
-Subject: [PATCH] update kernel modules for linux 6.9.9
+Subject: [PATCH 1/2] update kernel modules for linux 6.9.9
 
 ---
  hack/modules-amd64.txt | 10 ----------

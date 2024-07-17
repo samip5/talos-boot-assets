@@ -1,0 +1,495 @@
+From 41dad9bd622b84036a43668ed4ad332cdd312c7b Mon Sep 17 00:00:00 2001
+From: Jean-Francois Roy <jf@devklog.net>
+Date: Tue, 16 Jul 2024 21:11:55 -0700
+Subject: [PATCH 2/2] feat(talosctl): append microsoft secure boot certs
+
+This patch adds a flag to `secureboot.database.Generate` to append the
+Microsoft UEFI secure boot DB and KEK certificates to the appropriate
+ESLs, in addition to complimentary command line flags.
+
+This patch also includes a copy of said Microsoft certificates. The
+certificates were downloaded from Microsoft (1) on 2024-07-16. They are
+embedded in Go commands using the `secureboot.database` package.
+
+1. https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-secure-boot-key-creation-and-management-guidance?view=windows-11#14-signature-databases-db-and-dbx
+
+Signed-off-by: Jean-Francois Roy <jf@devklog.net>
+---
+ cmd/installer/cmd/imager/root.go              |  11 ++
+ cmd/talosctl/cmd/mgmt/gen/secureboot.go       |   8 +-
+ .../certs/MicCorKEKCA2011_2011-06-24.crt      | Bin 0 -> 1516 bytes
+ .../certs/MicCorUEFCA2011_2011-06-27.crt      | Bin 0 -> 1556 bytes
+ .../certs/MicWinProPCA2011_2011-10-19.crt     | Bin 0 -> 1499 bytes
+ .../microsoft corporation kek 2k ca 2023.crt  | Bin 0 -> 1462 bytes
+ .../database/certs/microsoft uefi ca 2023.crt | Bin 0 -> 1448 bytes
+ .../database/certs/windows uefi ca 2023.crt   | Bin 0 -> 1454 bytes
+ internal/pkg/secureboot/database/database.go  | 104 ++++++++++++++++--
+ pkg/imager/out.go                             |   2 +-
+ pkg/imager/profile/input.go                   |   2 +
+ 11 files changed, 116 insertions(+), 11 deletions(-)
+ create mode 100644 internal/pkg/secureboot/database/certs/MicCorKEKCA2011_2011-06-24.crt
+ create mode 100644 internal/pkg/secureboot/database/certs/MicCorUEFCA2011_2011-06-27.crt
+ create mode 100644 internal/pkg/secureboot/database/certs/MicWinProPCA2011_2011-10-19.crt
+ create mode 100644 internal/pkg/secureboot/database/certs/microsoft corporation kek 2k ca 2023.crt
+ create mode 100644 internal/pkg/secureboot/database/certs/microsoft uefi ca 2023.crt
+ create mode 100644 internal/pkg/secureboot/database/certs/windows uefi ca 2023.crt
+
+diff --git a/cmd/installer/cmd/imager/root.go b/cmd/installer/cmd/imager/root.go
+index fea064f63..bbfcb61b7 100644
+--- a/cmd/installer/cmd/imager/root.go
++++ b/cmd/installer/cmd/imager/root.go
+@@ -45,6 +45,8 @@ var cmdFlags struct {
+ 	OverlayName           string
+ 	OverlayImage          string
+ 	OverlayOptions        []string
++	// Only used when generating a secure boot iso without also providing a secure boot database.
++	SecurebootGenIncludeMicrosoftCerts bool
+ }
+ 
+ // rootCmd represents the base command when called without any subcommands.
+@@ -173,6 +175,13 @@ var rootCmd = &cobra.Command{
+ 
+ 					prof.Output.ImageOptions.DiskSize = int64(size)
+ 				}
++
++				if cmdFlags.SecurebootGenIncludeMicrosoftCerts {
++					if prof.Input.SecureBoot == nil {
++						prof.Input.SecureBoot = &profile.SecureBootAssets{}
++					}
++					prof.Input.SecureBoot.IncludeMicrosoftCerts = true
++				}
+ 			}
+ 
+ 			if err := os.MkdirAll(cmdFlags.OutputPath, 0o755); err != nil {
+@@ -229,4 +238,6 @@ func init() {
+ 	rootCmd.MarkFlagsMutuallyExclusive("board", "overlay-name")
+ 	rootCmd.MarkFlagsMutuallyExclusive("board", "overlay-image")
+ 	rootCmd.MarkFlagsMutuallyExclusive("board", "overlay-option")
++	rootCmd.PersistentFlags().BoolVar(
++		&cmdFlags.SecurebootGenIncludeMicrosoftCerts, "secureboot-gen-db-include-microsoft-certs", false, "Include Microsoft certificates when generating a secure boot database")
+ }
+diff --git a/cmd/talosctl/cmd/mgmt/gen/secureboot.go b/cmd/talosctl/cmd/mgmt/gen/secureboot.go
+index 03959691e..8795eea7d 100644
+--- a/cmd/talosctl/cmd/mgmt/gen/secureboot.go
++++ b/cmd/talosctl/cmd/mgmt/gen/secureboot.go
+@@ -64,6 +64,7 @@ var genSecurebootPCRCmd = &cobra.Command{
+ var genSecurebootDatabaseCmdFlags struct {
+ 	enrolledCertificatePath                string
+ 	signingCertificatePath, signingKeyPath string
++	includeMicrosoftCerts                  bool
+ }
+ 
+ // genSecurebootDatabaseCmd represents the `gen secureboot database` command.
+@@ -78,6 +79,7 @@ var genSecurebootDatabaseCmd = &cobra.Command{
+ 			genSecurebootDatabaseCmdFlags.enrolledCertificatePath,
+ 			genSecurebootDatabaseCmdFlags.signingKeyPath,
+ 			genSecurebootDatabaseCmdFlags.signingCertificatePath,
++			genSecurebootDatabaseCmdFlags.includeMicrosoftCerts,
+ 		)
+ 	},
+ }
+@@ -140,7 +142,7 @@ func saveAsDER(file string, pem []byte) error {
+ // generateSecureBootDatabase generates a UEFI database to enroll the signing certificate.
+ //
+ // ref: https://blog.hansenpartnership.com/the-meaning-of-all-the-uefi-keys/
+-func generateSecureBootDatabase(path, enrolledCertificatePath, signingKeyPath, signingCertificatePath string) error {
++func generateSecureBootDatabase(path, enrolledCertificatePath, signingKeyPath, signingCertificatePath string, includeMicrosoftCerts bool) error {
+ 	in := profile.SigningKeyAndCertificate{
+ 		KeyPath:  signingKeyPath,
+ 		CertPath: signingCertificatePath,
+@@ -156,7 +158,7 @@ func generateSecureBootDatabase(path, enrolledCertificatePath, signingKeyPath, s
+ 		return err
+ 	}
+ 
+-	db, err := database.Generate(enrolledPEM, signer)
++	db, err := database.Generate(enrolledPEM, includeMicrosoftCerts, signer)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to generate database: %w", err)
+ 	}
+@@ -186,6 +188,8 @@ func init() {
+ 		&genSecurebootDatabaseCmdFlags.signingCertificatePath, "signing-certificate", helpers.ArtifactPath(constants.SecureBootSigningCertAsset), "path to the certificate used to sign the database")
+ 	genSecurebootDatabaseCmd.Flags().StringVar(
+ 		&genSecurebootDatabaseCmdFlags.signingKeyPath, "signing-key", helpers.ArtifactPath(constants.SecureBootSigningKeyAsset), "path to the key used to sign the database")
++	genSecurebootDatabaseCmd.Flags().BoolVar(
++		&genSecurebootDatabaseCmdFlags.includeMicrosoftCerts, "include-microsoft-certs", false, "include microsoft certificates in the database")
+ 	genSecurebootCmd.AddCommand(genSecurebootDatabaseCmd)
+ }
+ 
+diff --git a/internal/pkg/secureboot/database/certs/MicCorKEKCA2011_2011-06-24.crt b/internal/pkg/secureboot/database/certs/MicCorKEKCA2011_2011-06-24.crt
+new file mode 100644
+index 0000000000000000000000000000000000000000..2787083e0cb615ff8c7beaac3b0a598ff5ec5870
+GIT binary patch
+literal 1516
+zcmXqLVtrxI#C%}^GZP~d6IUYF#SR7#U^d`o<J4;NX#38~$jHsgV9+?xklTQhjX9Ks
+zO_(V(*ihI&5X9jS<_b?N&dAJ5FUij{6foce39<{b2c@Ru=I5mt${EOjM7V@SeKV7b
+z@{9A+N)(*)iwg3K5=%0HI;;&WLGsMPMp)$)LNYRoQWOFbi%KdLd=rbZQ%eeR5|dLE
+zg7WiA4CKUl4Gj&<j7*FSObm@Iqr`cQ%phD-5Z9owfhKO&GSGmySrNONy<NQ(oE;U6
+z41kVnVpKv7Nk&!%<|amd2B0_>QxhX2!;u$TyY{aQSKFX=_|@~@;Z-h7vFyCJyq=b5
+zJ=?(lCinH5`kjxXl8tHv#r^pnb1%0Lo!ocq>w}h!vu5i&|GItRHO_~R4zR3PV<2<i
+z<1<^ptd!+}^(R{W`xV;G{nLLq|9{hgw=d70`x2a$WX0{g^O5S`f2=>R91&S9_(-|4
+zw_y7cS>HG7p3eCtcIf)S(^p;`(SJJgok}<Jo8C{|uMT_tb`})kuG{K9Dd)~Jmd@8-
+zjagm`FlrS({n;#R^Iw%yKcmd;|1ST1ch(kaMXdVGcd63$$?R0?Gn!iS{}e?odcAJa
+z`){Vg4ab<?Jc&Oux9sfu<VgqDS30y*w%0!nTJd6THG5{iC=)Xy1LNW*Mt@+4cpC_?
+zacZ+MvM@H8i!!nRQzV0dEHI>H`B=nQM3VkEpIu<L<aD~wrRbZXYpTy|>xws!gliCC
+zV&ReFVhCm^Wk_OhW^gp%2I=Hy0U6U~zz^aGGcx{XVKra|QU>xM0c92m1F;4X*R&w#
+zhjkHx`>*-UQx4^@wo=MkVGsjSAkPwN5Nr^*z<+^nn|DS@Nr9EVesWQcUM?&x>m}#s
+z>K9~Zf<*NTit<xRlS_*Afyn}x#(_x}m~MfI7MND!fr-ID7l;f@^?*tZ64*F^9%W@^
+zXJljvF$gjUfbk8O+FYO(m6w-evnaKQ2pdX}6CE)7GB*JO^GZv{SCJ_aOsBMLerrvV
+z;kmxx;>Q<3X)E3>+FDvQfnk;IlCr2*mD_ikX9ZRZq<njr@`)*Z-}e>L6?=D`>xf9<
+zxfXsxa&bKCwcE!oWS;ZzHroC=_L9NZ17COSs$gHN{crYdldzUIO{dm5sus-2e)(?#
+z|Mh9|PoGbb-=xLU>-}FtQ=t0$^_ry@%XYG!sC>&mVbYvK|L*74<?vTuIp})VBygG~
+z|I@gz8xpM3zOXNI+Pt9rFNfr(!mu;*+mx5IpI-JiqV7s&y6D8Z#!vOaPkFn$Y}#91
+zKR&nD`RQ8SmdSlt+EFzwzk*gZp3s%q{UGQ*gW!)@wg(e7JT%_AxZ`4~B$w3lH8o2P
+zHnsa%Y}DsHD$<_+w^whE<+kU~4nKHuR=wr@6sPx^-4om#tsAA&Z~SzQOg+uJ=P$z~
+z|1YK1%U7!W32=0%e4y*km8D*m7xZ>oX7zgh@9nG?To0`c7HO3KZNRe1+$`~ySEjVd
+zjf}U~n9k=+;kkT1N2zk{#t(a#7r7;@Ji>lRvFYRAPcJHs687I%vs6jM`_#c3-mh!z
+z!%a6m^Do`9A%R&bc-_QG*=w^M<we^<3O3#2HRZ3_U{bVedV=+b%GZlF$;2)a+tGgX
+zrS!M0(^c~==0BeJtE+Ox;Y_~mi)9p8r~f!5vX0^Uk<SN21WL0_7D#WMneaJg!_ja*
+Lvr9%T`{w}w_XAHz
+
+literal 0
+HcmV?d00001
+
+diff --git a/internal/pkg/secureboot/database/certs/MicCorUEFCA2011_2011-06-27.crt b/internal/pkg/secureboot/database/certs/MicCorUEFCA2011_2011-06-27.crt
+new file mode 100644
+index 0000000000000000000000000000000000000000..9aa6ac6c79b21cf1c23b01b5a747aea6ca15da37
+GIT binary patch
+literal 1556
+zcmXqLViPcEV*as!nTe5!i7S!g@(~6QU@_oj<J4;NX#38~$jHsgV9+?xklTQhjX9Ks
+zO_(V(*ihI&5X9jS<_b?N&dAJ5FUij{6foce39<{b2c@Ru=I5mt${EOjM7V@SeKV7b
+z@{9A+N)(*)iwg3K5=%0HI;;&WLGsMPMp)$)LNYRoQWOFbi%KdLd=rbZQ%eeR5|dLE
+zg7WiA4CKUl4Gj&<jLeM;jf_l8qr`cQ%phE25Z9owktS}|HqeB)SqZzFLtWiG6`UOv
+zj0}LTYhqMF4oXH=2IeM4eg>d87gG}>Bg0aT9G~N^oLSyHOAfTxvz78VGlrx*5UXc@
+zJE@j?Q}KQtu47)Vi3^U3=}x=+ReQm2U(eZ&4HIm3hWvfD=i=NWOC-AL9lK&8n=_1d
+z_qd;YSGY&fe^yt`e;51Sexprl9_vcCzB}n7=OtP9q-mCHMY%7}hP~hTFN<B?^Gkba
+zphfK0-@9&CFx~$DhD&<d)#e?N!Y{WSsCKA+D6gS@^4I&YIGJa4Q|b<UaM@I8`SjMN
+zq;B8+76p$oR76f1FX1r18j%@yx#sObmSB$OejBvflQ|OelSLz6ZPKp1&Xbtl75z7E
+zZF~K$wsil(2q7gFC8cxS??Vb1&IOo8luhM$m$h*b<5ebRMh3>kO^jv05GgVcV&l|i
+zV`O1$G8biJVFk+>C?mv}Sj1RFejLo+USA&U^;y+i)^DL&HNQeZgMlnCMr8Rw(!y)^
+zJ9F-BDwxxA)!#7hs?v-u=_>}3a5F@hSa{^P7=jr}8Il;B85|9`K|1+aSb!Oz&43@o
+z5oTok&%$cJ45SR?K?2Gw5(Z)oBCcsc&JXJ%1ovO_o2MMgVQr<9wZb3<q(Gh})F9X(
+zaDo2<-!|`zl9B=|ef{L39KBpvn%7It&($x;&IF0-7Zl~ElqQ!H>jRSyFfRa;I52$!
+z6E`qT#{<)hfi4gknCbzQ8YHlB0K<com7S51CBz`eAOOZUU}|%LT2x+Mj?JRfA|h-k
+zK~9^%Y|h-o#K>UE;q>3&%(?GnJZl9qB1|>ijLOt&-U~UZJ4t)3%5Ajph!hU}{4&C1
+znHYD|s@Sznw;Gxq+4{H0eq!GFSt?fgW59%;n?qZiG-MR^Zdw;8a`eEO=~ESDCfw%#
+zQ$BBM@x+c(d-n$IWDVfGA3kqE;#=OQxvDoE_{AMgoLlU5$anoLAz6-){=LWd?9{gP
+z)Rs5;lckvHKl?<TlgS@5Hu3I$1&0HhXQ`H|pFPRE_*?A7=Vl>QI|H^}7P`p3e|O3K
+zJ97OESKmr}(H9ZR*1wn5vqAak@s=BJUmY}VS{vpqq5CmoD*M^<ABsM#+kLmKb%u_j
+zkFoX#ey<N1?OP{>8kH{0YRa-%tSY$V?b_=s>rUTrh+NQeajH+!L?x*b*&bVWK9^-r
+zHq16L-S}%;@Cu#AH%nLxPt4u1>xHyS+7tH>zP_;f&GW@(Y-+oZVK+f}tA1R6Kx^-@
+z-lllRg<te|AI!XzQ~G3E=2peFU+fpZJ@UPHYpqUsu$-!q`SF~fqN!~gKAI+GNq*gA
+z-53zI%t-g&qRyXAZR!%C3!6?w&HiC9BSd7G`!rSk6KYQ!r%1&x**~53xHa0w&VIMM
+zSW)OBRi%wLtDiHoX)XRPH^J>N1MfA-&c}SF>PgInqRZZ2P+zbh(mdgZ#grWnDhht=
+h@@Z?I^6kMoCf9eVhqf)Q%M>eRpEUdHvOST_5de>mHUa<u
+
+literal 0
+HcmV?d00001
+
+diff --git a/internal/pkg/secureboot/database/certs/MicWinProPCA2011_2011-10-19.crt b/internal/pkg/secureboot/database/certs/MicWinProPCA2011_2011-10-19.crt
+new file mode 100644
+index 0000000000000000000000000000000000000000..a6d001c219389bbdd9f011ccac1b620defcd44bd
+GIT binary patch
+literal 1499
+zcmXqLV!dwA#Jqn2GZP~d6IUX8Sr`Kda2W8iacZ@Bw0-AgWaMULFlg*B<Tl`BV-96u
+z6J`nxHWW4x1aUZoxxy2RGcxniOY-v!1q}E=g6zWVL8&RZ`FSaZat1OW5iVg--^}Eq
+z{Nnty5(Ve{qJsRQ#F9*)4kH5tkUX=nCPF?aKOd+lwWuUBEi*Z>Bvrw&v?L?HD6^ze
+z!N|bSz(7u%*U-?=z|hjr!o<+TC`z2y$PB_Y1#t};TWI1`Jp&zxQ&ka84bRL=$uBQf
+z2q?-=DNP3XNFl)45#&rmgC<5L<UnL(WngY%<Yxeib1^kBGBVud*}dqA9_QodN54<Y
+z+{2)_H`Cbo{aTjOAr0@?ns*;nXu0|QQuk+z4Xc-|)vZaYWc~lx%bvwlq2Te6=h+YD
+z955?=*=2aQx8Ug=^Q|Rr(=?*n6O?uK-*I1>{yk8AUeRmzWhZyaSqGceJiYuzeP_GO
+zznv$QIrCSzO+1)4&BpQa>BaW3Oj*8fGUZh@V$A;kbr$8C@<4LS`TK{29vzBSf2Uqy
+z&>gMCnXS|roFJxiAVW5I*Bj5za}#@7GdPP~Vrv(LXy2{;E_&WHHb+J~=G>k+%H8>S
+zTh(rw2_N>qroL{ck+tI_orlNImcLjP;`cp<o25N<i?hUvO%HM<%ilz){PJLCVrFDu
+zT-?Oy3=9!_0|7QpZ8k<0#wK%7MiyXVWH68ghPEspix`W@N=+uqKCvUyE6z^%InRIA
+z!<x|b!3L6W4I)e|JaSwN!3?DgNes>mjt1Nyo%}2yW7-V(K^$R5#{Vp=2FyUpKprHZ
+z%pzeR)*y2ATiEIT7mH$&GA`OqnGk*b+$@PB24Nrt@+|%az6Rb4JQujPxn`7<6j<r&
+zCl}@D<-(G&UUGh}enEC7NL0T7692{ez@!08zQDu_OtbNz)T(P>rfX!Z2UKJb#l`{j
+zA}cF9BO{BSfscU~jBmiyW(T#Ryu2Kn6~N4Z&+HQ9ga*v5%uT=m6!}wA7`U|ZP~N8Z
+zmUeq=g81{a?FEF3|E<Wl;IYiaw`&@!+B-wH35k{0{#)p|W`8;GRAa|2+5WEEoY$p}
+z`*4}1W%ay~zRogXg@pK$**hOO7@3tFIT&?p{}Yx2uf#5|Ih^r6Y0ce`oB)G}Wv^@g
+zO<C^O_vKAZTXFcIAjM*nsLzYL!cMT<V&{DOqx<o>FLizEK78Zu;`nWUQnsi*c*pB~
+z$qyde8m4Y&eEMn4S+OPaZC7lZeaPv;gqHXa+5erdcFDR=$lp-x=Q!VCe*DvgTAKtX
+z7I!IXd^mTn*fQR3bxgvW`^*9>E_1&8@@-n{w)()1G<V6~MH_@{8?`c6%Xd%oNvhs<
+zkp1|ss&*4*KJTQenJ-WMIp<}5Qg=ysjm$sWJ3IKJeqB4VnW>e@>ec3(c~3GG&F?i{
+z{8lQ-ntpk5c$}uR<%xH?56?bvEsnl$>0H%nG07&khzoIZ8#kw~&oTY9=c&EQBhy7(
+zrEK3M!e(Bn(7DJe{rW-&<J?sOA6f73s?$l{&Nf?F@yO4LoJSGjY-ZXMg_zGQx%o+V
+z*Uu?)9o|Z~emvI|lWn(}`Er4T7FX7Tc=wA}levsOt-o$2uT>EB)G3mq&^vrrU323H
+zMVl`&2aoQYFqyBzb#mLwjS4gO%{YB@>XO)`YYUP&6!w-1l-JsRcHKFD`ux-34f)0^
+NS<aU)Ns@`I0|1HPHT?hp
+
+literal 0
+HcmV?d00001
+
+diff --git a/internal/pkg/secureboot/database/certs/microsoft corporation kek 2k ca 2023.crt b/internal/pkg/secureboot/database/certs/microsoft corporation kek 2k ca 2023.crt
+new file mode 100644
+index 0000000000000000000000000000000000000000..e6ffb4f975fae9658631e5ca7697b63d3692b869
+GIT binary patch
+literal 1462
+zcmXqLV%=oW#5`*OGZP~dldv%Z1B0-L*p9^9rY3J78^|-@W#iOp^Jx3d%gD&h%3u&>
+z$Zf#M#vIDRCd?EXY$#_S1LANAi~43J7v&e{r<Eu;=NA>^7bTWt=I0q|8)$;$nT3@Q
+z@<G9l3NEQ-naQce3PJh#Kn;!xMg~TP26E!OM#cul21X#Bv1ybzudxM$YYgHV#E@pU
+zu7NhhZWV;xNN!W`cJ)>;@`l=OY|zB0gzQ;HRtDxKMt%mMI2ThBBO}A(xQ^~(ox@y5
+zUVc5-sQZ!sqnfGtMbF^EjnR{X);|=zf3Mqe?|Prq(%`4JxQu4#8>?;8-Zy3D{5Q7_
+z^|6{v66R0dU$UrZg=XD+BSlS)$Rp)Pv?lqqZ(}xpJ?qiolUqC#4<}A}B_6o(xyU1x
+zWWB4OjxGJPC{8}}SRn6m&EG*>vmbZ7$oRke*QCt#N5uZeK8=5H|4mvbcjBQn)(Uy|
+zxA4B!K5^lYiC@z+%Xc3QTUl)1Un~24_|(CxJ^I`N8nZoSZ4eMya&yYljOep@&#T_-
+zS>U;2W$+DO{Y}*;ZtdCh{LktFf%2)Yo`2U~vKK#{HtSQZ*<CK3M+e#!btm8En0Dz!
+zOvpnfW=00a#Z8R4z!1qa-~$G&EI%XTe-;*C+G#ToVB^$gV`O1$G8bh8i7*(*f>iLa
+zh_Q$~SY5Pdn%(~$X|rnuqMYqwoI={;4J6?jM3`83<hU4u8A=(F7@Qd#4fsJig+XSs
+z8ZZMX19^~uGK++PSc6E5OB)-*411kbn~!#WUZZ#N*<4O$gH(_Ld6qbX7=x$<5evfF
+zLNZE93as??%gf94a$zY`FF8L~zaTp^zo1w@xhO{;o-9<241kFeNJ5h(h!0GdK*|{;
+z3QCT8Kn(^(Y#cyOva+%>GP0x@q!=W@_y$aEVFYbVEh;G{)y@*+Bnixa%uT?cZDnE;
+z`jx)U-*V*+lRL3m6_V8!@8&f1OFy!)HR6ifAHnuK|3|OH3h9=wvrnz<=5XOt>(#jt
+zpQo(K{wvx?O|Q(*SugL!3B!Y4mp(CVU-q%|$+Wj@k4{aka9Lqoc17Fw`kp)O)~kIr
+z*G}u)e)UlQYPZ9&oBzIDI`3=QcJ0>xGZxOzmYHq${T-k9;=gA456^1Mka3u)c8a-o
+zndz%bT+6$~)+sVF$f@&h=iB6D7^e5^N8c+RlMjCP3k)(@E}p+UC&exQjN;kT?^%s@
+zb1b_t-_;`4@6wz}oiB@@RB@Qf`7b-PE8A|ne29tXuPs%lZ!M6IY}D5J)}glHSI(!`
+z2XCx%e3<`dzwnDZk>}5kGj}`86tG~+E!fL=;$Cl<tOdWn@(NXld%HDso!2kfqtLvS
+z?I)|^eCwT+yan082TBh~3kYw1lFzx~{Kf5jg)!St_CJ;RARKyg^3HX!_NTZvL}s~q
+z9e(&&y@FS)@lS;AM#o(eyyri>U(F%s|KrcGzutFc-y5g~ST4T*&wl5x*VCq7IQx@D
+z?KiK7B*%@1lMe<Q&&$1WA-ivCQA)tcx1pVR2fY`uT`}6aGB=g6>SIv21gk;J4vjRy
+z?NuKN{n`=}s&d1QM|0XOdVhs)-lWU&Gr!H<C|gmH{r`m)%le9RyAN92%OAutzHFaq
+VYB1sLb=T}UXPzy3@=SdBT>u?nFpB^H
+
+literal 0
+HcmV?d00001
+
+diff --git a/internal/pkg/secureboot/database/certs/microsoft uefi ca 2023.crt b/internal/pkg/secureboot/database/certs/microsoft uefi ca 2023.crt
+new file mode 100644
+index 0000000000000000000000000000000000000000..39a91b31730ad8dfd588a301a066f6f93d90d409
+GIT binary patch
+literal 1448
+zcmXqLVqId;#N4xhnTe5!N!XZyfkDh{zgg#e(b6+OHjrn)%f_kI=F#?@mywa1mBAp&
+zklTQhjX9KsO_(V(*ig<u2E^eK7WK_cF3K;?Pb*Py&Mzv+FG?)Q%+E8_HqZpgGYcyr
+z<b#486<kuwGLut_6@v2fff^hYj0}tn4dldmjf@S<42=yfjSNl9qr`cQEg)QD5ZAzu
+zG`r;uWFdBoA?yxyb@PPUXKc{KsD$i2Mpg#qCPsb+pg0#(6C)$TUL~z{@1+b|g)0J=
+z&;I+T;$rd+soBY2h1hO;JDO(Yul}0Fa%TGZ-B&m`r4p@ppKV^?_Mda@y#|##LJgnd
+zZ;HKr<TUrJzHcH^Vwa4!tVEJ!+w{V<cJ;A^!rm{n7!K~cx}9NuT<RtrssAN!Uo~H{
+z>@+qlu3fO`m&22^fQVIp+F!&dG@HCx{fPT$yxo5fZNZ6Z?<MlWkIt7Up85V^R*Cj*
+z{rZ4D*;}?{+gP5S(Gxh{EZw~L$x>nA!aU=O#Vc&yc&No4KNiQ^K5NyPP?N^Bb0>U#
+zHZ6JC3w8zZ6O-jGty^+uU2Ww4j<_VAb<v+R9l~VQ9PYI)TN`%qe5iX_{2a^M%uLLT
+z42+AL7;}Lkl4-yP3`|*mM#ldvEWp&#W+1@Esm;d7!q{Xk$_Nr+00*}$ABz}^NaLz(
+zBbSq=dmda%>iRrG-AT^Kv(`Wou0e!}g-4EyA()|*A&J46!O?&pWVSHKY*qtiAY~vA
+z5>RH5Fc51HX>n;|W0+yDvug9v&d+P~PClE<$!w4cQXtO~XAol$wIE_aSX)R&NlAf~
+zzJ7Umxn3?TE$Sub=js<^XXY0a>n9iG=))6&s*wRO83IXYLIm-FNfAgngG52eQ4grW
+zpoonF=t)*qc1A{)G=mg_BpBa-sV$74jj2T?#iZI<f}A9QIgYsr7_{sO!dk)YLi|#n
+zqeP~PKfQ5%YRK$vzPl5bzC9l69x&N;`_ztjaY@JIvaL-URveu>Q`D@}bDz+mwBOA<
+z8ye3&U9$Snf?2P>vfKPq{4wi}q$1Be6`hMQi^RCRU%&B~voX5lHe<@6#|>GlrOuX1
+zXIakLzN^6HfBKZ8jcgxIH?mAtSDd-Gy+dS<QXwC=e$2id6GCbZ$nDXdy*NzVd;0Uo
+z^};5<Hkf43{<cZ?`;F=w3YTM+PxbNF`uSWgWBs3;{u6Ds^G{rS?<;lU;<vxLHIH97
+z9(<*K@OPhTTU6&Vfqmy5_b;tJBDLT}>4d+E8xAf$DyAG~b58$X&y4*XG2eC`-DI=v
+z%!xPkm&!{{zx_PzWOuKORww`B{=Mh4THR(TFY0$XF!S20R{2E9ePX8DOBYOSNM&ok
+z!fkru$SS^bi@1^#PI+s`sIxS!w~J`5in@_*FA)5dN9?<rcUQyCqw)*x-MF0SBI3II
+z>*`q@;(xbK31RAfvORdAUGKbrrWFhiDyB&9+kC`8eiPsA4{j3<J`4X>bFg5OjCaaS
+z0cL5F-)ZNY^5!|L5H$ak+O5dB-ez)=?dLtsckM$bh+Z;WFZle&sRd0Bcb?xIKKXd4
+z`I>si{qoanKC4andE-*3N>|r5#}5z04k%CRDdh6W;*|{jZZ&6;;<SZVe{l88-GB1+
+RsSc+<-do=PS2s{h1OQX%DC__L
+
+literal 0
+HcmV?d00001
+
+diff --git a/internal/pkg/secureboot/database/certs/windows uefi ca 2023.crt b/internal/pkg/secureboot/database/certs/windows uefi ca 2023.crt
+new file mode 100644
+index 0000000000000000000000000000000000000000..4c5430b28340de623d877bf09ce5284a7c45785b
+GIT binary patch
+literal 1454
+zcmXqLVqIm>#5`#MGZP~dldv%Z1A|mY_Y8(GrIv$0Hjrn)%f_kI=F#?@mywa1mBFB~
+z!;ss6lZ`o)g-w_#G}utsKoG>?5atR`EY8TxOE1aKGZZl30|~MVvj?T7<mTt47|I#Q
+zfJC^2MSU}qi}H)}(@GSa^NR}dixNvRfjW!~3_$YC!kP&Ap!|HGqST_2%(Tqp#FA76
+z$I_CF{G!Z~N(CbWLjwajab6>112aQoLkm+2Bg-gpUSm@**U|vQHSj@oDIq7w8c0K&
+zAQGOLmy%yztPtwz=BeQ92(%4oPZOgOa#%33GB7tW@-qO%xtN+585#C$GQAj5xuyS1
+zqgLK#p=*<;8`N0D?5~_8$;GeB^>6=!6*r9RFRjkcZ#?KLp6PnNwLyJx&1S<hOPBlp
+zbiNR!e_cZQQp7Y?%f(Z-@3~ufaKZWhN5OL1YDp_()|tuqFTB4~co&cAZk5z@##OS8
+z0^7|FX6tRu5xDF(?ZSMmg&*H86y<K3dh~yCm+;m}CUS;xiGu55&wLbk=2LmHXp>1-
+zQ<&~*{+a{+llvk|9oyD$3UGc3ObyujRdKVLW$&sZ6F1*klcLOa)-;~i$#afB@41HN
+zrpSNyy<HwUoUl#ac7BT!uVu_7CjlOgLnW_e?&R&^S~Fw!nO|}?%bUfH-e$UWbK3oE
+zCT2zk#>GvHZom+60>{5BKO^IR78YRAYBLaE<J4wjWMOPF7i9#AFc`=J16!7lMT|vc
+z-Jkf~`&eW9dsjt-6njn)UmX=xWFQIGAi~7LBge%M%uvdZ#Nf=}XuuEBDGV~3)qojD
+z8OVbKlvyMU#2Q4dehWL@|6);0QpQEwDHEcvpPMCd#2^f$K%T|lz}LWgf#(AEHrI@j
+zk^(Dz{p6w?y<Av=)Jx9K)i21-1c~Yw6y>LsCYKcJ1JffgAp(;jF!jZQ(w(k>nXZws
+z9#D}%6dMQ7SFEh;jEpRP20jK}Funm(n;q1O^73+QRsfSVKC?@Z(;6_}F*gCjZ2rk@
+z|MMQsu@3$AuiNr&B1`^-waI72%e+=NclQ1`_Ngas!ow#SOGV%8xSYV_5H9~a&a^1;
+z-gLv9$^~D=)_KdkW#oDPJ)GakKqB+U!o_;iC+*lL{ZG3s&dEuzzpub|!t%e2$)8g8
+z&wf<R(RkkTlezf)k3WkpAC^5l!PWO!1KZxePqQ-5ZLae(jBY7j@uJ9H-SlLQ!a0W7
+z{ttY%m}Q>+ZXzgHB2=}aN3StwS-@J!Un|^P^Eaj!AI^U4@IouIUq#@dW?rvY$Gg7z
+zw8>2Q(eqe(&NRxbogVU0La#1p!k)l;T72u$UhPTATQD)@iN4T^J<qdu9haV6DV37;
+z(Rs_o!)}Tejg>yXJ{a;|uKZsmv{d%y-8GB&3!A=A{vWe2ab4;sk;b=`QM1}#B~+i@
+z>|bhfYS+T|i@q&ta9!A~-gx$ExrN;+zq=Z*B6b~Jpn0#Yr{m95^}xHUFJFk}EkB;q
+zAA0@DBEIM+CT=2PvX5o1<<4B|^QN#^fAzUdTQu*58U$Nf8FhbnHK#+!nl(dm|M~VH
+zf#27J6FxhpeBlUhJUv%%Y2TNp>R%UIy?J8mwf)@B4&M2DPvu_n+7nUMXT&lk@9vlL
+zx$e1#u4mn8FMPFR|NHdmb9NkWFw@eCJb8d;xyyp$tv%;0qSpP`-8S`u%i6Rm<F|!R
+VT-%$UE<d-(;X=_R4~Abqr2ux)FKhq+
+
+literal 0
+HcmV?d00001
+
+diff --git a/internal/pkg/secureboot/database/database.go b/internal/pkg/secureboot/database/database.go
+index c47615959..f47987c4e 100644
+--- a/internal/pkg/secureboot/database/database.go
++++ b/internal/pkg/secureboot/database/database.go
+@@ -7,6 +7,8 @@ package database
+ 
+ import (
+ 	"crypto/sha256"
++	"crypto/x509"
++	"embed"
+ 
+ 	"github.com/foxboron/go-uefi/efi"
+ 	"github.com/foxboron/go-uefi/efi/signature"
+@@ -23,33 +25,119 @@ type Entry struct {
+ 	Contents []byte
+ }
+ 
++const (
++	microsoftSignatureOwnerGUID = "77fa9abd-0359-4d32-bd60-28f4e78f784b"
++)
++
++// Well-known UEFI certificates (DER data).
++//
++//go:embed certs/*
++var certificatesData embed.FS
++
++// Well-known Microsoft UEFI DB certificates.
++// ref: https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-secure-boot-key-creation-and-management-guidance?view=windows-11#14-signature-databases-db-and-dbx
++var microsoftUEFIDBCertificates []*x509.Certificate
++
++// Well-known Microsoft UEFI KEK certificates.
++// ref: https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-secure-boot-key-creation-and-management-guidance?view=windows-11#14-signature-databases-db-and-dbx
++var microsoftUEFIKEKCertificates []*x509.Certificate
++
++func init() {
++	for _, n := range []string{
++		// "MicWinProPCA2011_2011-10-19.crt",
++		// "windows uefi ca 2023.crt",
++		"MicCorUEFCA2011_2011-06-27.crt",
++		"microsoft uefi ca 2023.crt",
++	} {
++		data, err := certificatesData.ReadFile("certs/" + n)
++		if err != nil {
++			panic(err)
++		}
++
++		certs, err := x509.ParseCertificates(data)
++		if err != nil {
++			panic(err)
++		}
++
++		microsoftUEFIDBCertificates = append(microsoftUEFIDBCertificates, certs...)
++	}
++
++	for _, n := range []string{
++		"MicCorKEKCA2011_2011-06-24.crt",
++		"microsoft corporation kek 2k ca 2023.crt",
++	} {
++		data, err := certificatesData.ReadFile("certs/" + n)
++		if err != nil {
++			panic(err)
++		}
++
++		certs, err := x509.ParseCertificates(data)
++		if err != nil {
++			panic(err)
++		}
++
++		microsoftUEFIKEKCertificates = append(microsoftUEFIKEKCertificates, certs...)
++	}
++}
++
+ // Generate generates a UEFI database to enroll the signing certificate.
+ //
+ // ref: https://blog.hansenpartnership.com/the-meaning-of-all-the-uefi-keys/
+-func Generate(enrolledCertificate []byte, signer pesign.CertificateSigner) ([]Entry, error) {
++//
++//nolint:gocyclo
++func Generate(enrolledCertificate []byte, includeMicrosoftCerts bool, signer pesign.CertificateSigner) ([]Entry, error) {
+ 	// derive UUID from enrolled certificate
+ 	uuid := uuid.NewHash(sha256.New(), uuid.NameSpaceX500, enrolledCertificate, 4)
+ 
+ 	efiGUID := util.StringToGUID(uuid.String())
+ 
+-	// Create ESL
+-	db := signature.NewSignatureDatabase()
+-	if err := db.Append(signature.CERT_X509_GUID, *efiGUID, enrolledCertificate); err != nil {
++	// Create PK ESL
++	pk := signature.NewSignatureDatabase()
++	if err := pk.Append(signature.CERT_X509_GUID, *efiGUID, enrolledCertificate); err != nil {
+ 		return nil, err
+ 	}
+ 
+-	// Sign the ESL, but for each EFI variable
+-	signedDB, err := efi.SignEFIVariable(signer.Signer(), signer.Certificate(), "db", db.Bytes())
++	signedPK, err := efi.SignEFIVariable(signer.Signer(), signer.Certificate(), "PK", pk.Bytes())
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 
+-	signedKEK, err := efi.SignEFIVariable(signer.Signer(), signer.Certificate(), "KEK", db.Bytes())
++	// Create KEK ESL
++	kek := signature.NewSignatureDatabase()
++	if err := kek.Append(signature.CERT_X509_GUID, *efiGUID, enrolledCertificate); err != nil {
++		return nil, err
++	}
++
++	if includeMicrosoftCerts {
++		owner := util.StringToGUID(microsoftSignatureOwnerGUID)
++		for _, cert := range microsoftUEFIKEKCertificates {
++			if err := kek.Append(signature.CERT_X509_GUID, *owner, cert.Raw); err != nil {
++				return nil, err
++			}
++		}
++	}
++
++	signedKEK, err := efi.SignEFIVariable(signer.Signer(), signer.Certificate(), "KEK", kek.Bytes())
+ 	if err != nil {
+ 		return nil, err
+ 	}
+ 
+-	signedPK, err := efi.SignEFIVariable(signer.Signer(), signer.Certificate(), "PK", db.Bytes())
++	// Create db ESL
++	db := signature.NewSignatureDatabase()
++	if err := db.Append(signature.CERT_X509_GUID, *efiGUID, enrolledCertificate); err != nil {
++		return nil, err
++	}
++
++	if includeMicrosoftCerts {
++		owner := util.StringToGUID(microsoftSignatureOwnerGUID)
++		for _, cert := range microsoftUEFIDBCertificates {
++			if err := db.Append(signature.CERT_X509_GUID, *owner, cert.Raw); err != nil {
++				return nil, err
++			}
++		}
++	}
++
++	signedDB, err := efi.SignEFIVariable(signer.Signer(), signer.Certificate(), "db", db.Bytes())
+ 	if err != nil {
+ 		return nil, err
+ 	}
+diff --git a/pkg/imager/out.go b/pkg/imager/out.go
+index d81ef934d..0aa8b7b30 100644
+--- a/pkg/imager/out.go
++++ b/pkg/imager/out.go
+@@ -133,7 +133,7 @@ func (i *Imager) outISO(ctx context.Context, path string, report *reporter.Repor
+ 
+ 			var entries []database.Entry
+ 
+-			entries, err = database.Generate(enrolledPEM, signer)
++			entries, err = database.Generate(enrolledPEM, i.prof.Input.SecureBoot.IncludeMicrosoftCerts, signer)
+ 			if err != nil {
+ 				return fmt.Errorf("failed to generate database: %w", err)
+ 			}
+diff --git a/pkg/imager/profile/input.go b/pkg/imager/profile/input.go
+index bd46ee285..c590e57c8 100644
+--- a/pkg/imager/profile/input.go
++++ b/pkg/imager/profile/input.go
+@@ -96,6 +96,8 @@ type SecureBootAssets struct {
+ 	PlatformKeyPath    string `yaml:"platformKeyPath,omitempty"`
+ 	KeyExchangeKeyPath string `yaml:"keyExchangeKeyPath,omitempty"`
+ 	SignatureKeyPath   string `yaml:"signatureKeyPath,omitempty"`
++	// Optional, auto-enrollment include Microsoft certs.
++	IncludeMicrosoftCerts bool `yaml:"includeMicrosoftCerts,omitempty"`
+ }
+ 
+ // SigningKeyAndCertificate describes a signing key & certificate.
+-- 
+2.45.2
+
