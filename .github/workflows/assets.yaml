@@ -261,8 +261,16 @@ jobs:
         - /dev:/dev
 
     steps:
-      - name: Build amd64 secureboot-installer
+      - name: Build
+        env:
+          PCR_SIGNING_KEY: ${{ secrets.PCR_SIGNING_KEY }}
+          UKI_SIGNING_CERT: ${{ secrets.UKI_SIGNING_CERT }}
+          UKI_SIGNING_KEY: ${{ secrets.UKI_SIGNING_KEY }}
         run: |
+          mkdir /secureboot
+          echo "${PCR_SIGNING_KEY}" > /secureboot/pcr-signing-key.pem
+          echo "${UKI_SIGNING_CERT}" > /secureboot/uki-signing-cert.pem
+          echo "${UKI_SIGNING_KEY}" > /secureboot/uki-signing-key.pem
           /bin/imager secureboot-installer \
             --arch amd64 \
             --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
@@ -278,9 +286,6 @@ jobs:
             --extra-kernel-arg talos.network.interface.ignore=enp66s0f0 \
             --extra-kernel-arg talos.network.interface.ignore=eth1 \
             --extra-kernel-arg talos.network.interface.ignore=enp66s0f1
-
-      - name: Build amd64 secureboot-iso
-        run: |
           /bin/imager secureboot-iso \
             --arch amd64 \
             --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
