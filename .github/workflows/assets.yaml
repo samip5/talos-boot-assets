@@ -74,7 +74,7 @@ jobs:
     needs: [check-releases]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build packages
-    runs-on: buildjet-32vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
 
     steps:
       - name: Get release tag
@@ -133,7 +133,7 @@ jobs:
     needs: [check-releases, build-pkgs]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build extensions
-    runs-on: buildjet-32vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
 
     steps:
       - name: Get release tag
@@ -194,7 +194,7 @@ jobs:
     needs: [check-releases, build-pkgs, build-extensions]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build talos
-    runs-on: buildjet-32vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
