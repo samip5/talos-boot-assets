@@ -75,6 +75,10 @@ jobs:
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build packages
     runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1
+      matrix:
+        target: ["ca-certificates", "base", "kernel", "nvidia-open-gpu-kernel-modules-pkg"]
 
     steps:
       - name: Get release tag
@@ -126,7 +130,7 @@ jobs:
 
       - name: Build
         run: |
-          make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg \
+          make ${{ matrix.target }} \
             BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
@@ -138,6 +142,9 @@ jobs:
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build extensions
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: ["nvidia-container-toolkit", "nvidia-open-gpu-kernel-modules"]
 
     steps:
       - name: Get release tag
@@ -189,7 +196,7 @@ jobs:
 
       - name: Build
         run: |
-          make nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
+          make ${{ matrix.target }} \
             BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
