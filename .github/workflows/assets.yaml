@@ -74,7 +74,7 @@ jobs:
     needs: [check-releases]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build packages
-    runs-on: [runs-on,runner=16cpu-linux-x64,"run-id=${{ github.run_id }}"]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Get release tag
@@ -127,7 +127,7 @@ jobs:
       - name: Build
         run: |
           make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg \
-            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
+            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
@@ -137,7 +137,7 @@ jobs:
     needs: [check-releases, build-pkgs]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build extensions
-    runs-on: [runs-on,runner=16cpu-linux-x64,"run-id=${{ github.run_id }}"]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Get release tag
@@ -190,7 +190,7 @@ jobs:
       - name: Build
         run: |
           make nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
-            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
+            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
@@ -202,7 +202,7 @@ jobs:
     needs: [check-releases, build-pkgs, build-extensions]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build talos
-    runs-on: [runs-on,runner=16cpu-linux-x64,"run-id=${{ github.run_id }}"]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -250,7 +250,7 @@ jobs:
       - name: Build
         run: |
           make imager installer \
-            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
+            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
             INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
             USERNAME="${{ github.actor }}/talos" \
@@ -258,7 +258,7 @@ jobs:
             PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PUSH="true"
           make talosctl \
-            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
+            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
             PLATFORM="linux/amd64"
 
       - name: Upload talosctl
