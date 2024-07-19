@@ -237,7 +237,7 @@ jobs:
 
       - name: Build
         run: |
-          make installer \
+          make imager installer talosctl-image \
             BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
             PLATFORM="linux/amd64" \
             USERNAME="${{ github.actor }}/talos" \
@@ -254,12 +254,6 @@ jobs:
     permissions:
       contents: write
 
-    container:
-      image: ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }}
-      options: --privileged
-      volumes:
-        - /dev:/dev
-
     steps:
       - name: Build
         env:
@@ -267,37 +261,44 @@ jobs:
           UKI_SIGNING_CERT: ${{ secrets.UKI_SIGNING_CERT }}
           UKI_SIGNING_KEY: ${{ secrets.UKI_SIGNING_KEY }}
         run: |
-          mkdir /secureboot
-          echo "${PCR_SIGNING_KEY}" > /secureboot/pcr-signing-key.pem
-          echo "${UKI_SIGNING_CERT}" > /secureboot/uki-signing-cert.pem
-          echo "${UKI_SIGNING_KEY}" > /secureboot/uki-signing-key.pem
-          /bin/imager secureboot-installer \
-            --arch amd64 \
-            --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
-            --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
-            --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
-            --system-extension-image ghcr.io/${{ github.actor }}/talos/nvidia-container-toolkit:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.NVIDIA_CONTAINER_TOOLKIT_VERSION }} \
-            --system-extension-image ghcr.io/${{ github.actor }}/talos/nvidia-open-gpu-kernel-modules:${{ env.NVIDIA_DRIVER_VERSION }}-${{ needs.check-releases.outputs.talosReleaseTag }} \
-            --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
-            --extra-kernel-arg amd_pstate=active \
-            --extra-kernel-arg console=tty0 \
-            --extra-kernel-arg console=ttyS0 \
-            --extra-kernel-arg talos.network.interface.ignore=eth0 \
-            --extra-kernel-arg talos.network.interface.ignore=enp66s0f0 \
-            --extra-kernel-arg talos.network.interface.ignore=eth1 \
-            --extra-kernel-arg talos.network.interface.ignore=enp66s0f1
-          /bin/imager secureboot-iso \
-            --arch amd64 \
-            --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
-            --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
-            --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
-            --extra-kernel-arg console=tty0 \
-            --extra-kernel-arg console=ttyS0 \
-            --extra-kernel-arg net.ifnames=0 \
-            --extra-kernel-arg talos.network.interface.ignore=eth0 \
-            --extra-kernel-arg talos.network.interface.ignore=eth1 \
-            --extra-kernel-arg bond=bond0:eth2,eth3:mode=802.3ad:1500 \
-            --extra-kernel-arg ip=bond0:dhcp
+          mkdir out
+          echo "${PCR_SIGNING_KEY}" > ./out/pcr-signing-key.pem
+          echo "${UKI_SIGNING_CERT}" > ./out/uki-signing-cert.pem
+          echo "${UKI_SIGNING_KEY}" > ./out/uki-signing-key.pem
+          docker run --rm -v ./out:/_out \
+            ghcr.io/${{ github.actor }}/talos/talosctl:${{ needs.check-releases.outputs.talosReleaseTag }} \
+              gen secureboot database --include-microsoft-certs
+          docker run --rm -v ./out:/secureboot:ro" \
+            ghcr.io/${{ github.actor }}/talos/imager:${{ needs.check-releases.outputs.talosReleaseTag }} \
+              secureboot-installer \
+              --arch amd64 \
+              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
+              --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
+              --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
+              --system-extension-image ghcr.io/${{ github.actor }}/talos/nvidia-container-toolkit:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.NVIDIA_CONTAINER_TOOLKIT_VERSION }} \
+              --system-extension-image ghcr.io/${{ github.actor }}/talos/nvidia-open-gpu-kernel-modules:${{ env.NVIDIA_DRIVER_VERSION }}-${{ needs.check-releases.outputs.talosReleaseTag }} \
+              --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
+              --extra-kernel-arg amd_pstate=active \
+              --extra-kernel-arg console=tty0 \
+              --extra-kernel-arg console=ttyS0 \
+              --extra-kernel-arg talos.network.interface.ignore=eth0 \
+              --extra-kernel-arg talos.network.interface.ignore=enp66s0f0 \
+              --extra-kernel-arg talos.network.interface.ignore=eth1 \
+              --extra-kernel-arg talos.network.interface.ignore=enp66s0f1
+          docker run --rm --privileged -v ./out:/secureboot:ro" -v /dev:/dev \
+            ghcr.io/${{ github.actor }}/talos/imager:${{ needs.check-releases.outputs.talosReleaseTag }} \
+              secureboot-iso \
+              --arch amd64 \
+              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
+              --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
+              --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
+              --extra-kernel-arg console=tty0 \
+              --extra-kernel-arg console=ttyS0 \
+              --extra-kernel-arg net.ifnames=0 \
+              --extra-kernel-arg talos.network.interface.ignore=eth0 \
+              --extra-kernel-arg talos.network.interface.ignore=eth1 \
+              --extra-kernel-arg bond=bond0:eth2,eth3:mode=802.3ad:1500 \
+              --extra-kernel-arg ip=bond0:dhcp
 
       - name: Upload secureboot-installer
         uses: actions/upload-artifact@v4
