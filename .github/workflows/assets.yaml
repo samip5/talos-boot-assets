@@ -190,7 +190,7 @@ jobs:
             USERNAME="${{ github.actor }}/talos" \
             PUSH=true
 
-  build-installer:
+  build-talos:
     needs: [check-releases, build-pkgs, build-extensions]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build installer image
@@ -237,16 +237,25 @@ jobs:
 
       - name: Build
         run: |
-          make imager installer talosctl-image \
+          make imager installer talosctl \
             BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
+            INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PUSH="true"
 
+      - name: Upload talosctl
+        uses: actions/upload-artifact@v4
+        with:
+          name: talosctl
+          path: _out/talosctl-linux-amd64
+          if-no-files-found: error
+          retention-days: 1
+
   build-boot-assets:
-    needs: [check-releases, build-installer]
+    needs: [check-releases, build-talos]
     if: needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build
     name: Build boot assets
     runs-on: ubuntu-latest
@@ -255,6 +264,11 @@ jobs:
       contents: write
 
     steps:
+      - name: Download talosctl
+        uses: actions/download-artifact@v4
+        with:
+          name: talosctl
+
       - name: Build
         env:
           PCR_SIGNING_KEY: ${{ secrets.PCR_SIGNING_KEY }}
@@ -265,9 +279,7 @@ jobs:
           echo "${PCR_SIGNING_KEY}" > ./out/pcr-signing-key.pem
           echo "${UKI_SIGNING_CERT}" > ./out/uki-signing-cert.pem
           echo "${UKI_SIGNING_KEY}" > ./out/uki-signing-key.pem
-          docker run --rm -v ./out:/_out \
-            ghcr.io/${{ github.actor }}/talos/talosctl:${{ needs.check-releases.outputs.talosReleaseTag }} \
-              gen secureboot database --include-microsoft-certs
+          ./talosctl gen secureboot database --include-microsoft-certs
           docker run --rm -v ./out:/secureboot:ro" \
             ghcr.io/${{ github.actor }}/talos/imager:${{ needs.check-releases.outputs.talosReleaseTag }} \
               secureboot-installer \
