@@ -193,7 +193,7 @@ jobs:
   build-talos:
     needs: [check-releases, build-pkgs, build-extensions]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
-    name: Build installer image
+    name: Build talos
     runs-on: buildjet-32vcpu-ubuntu-2204
 
     steps:
@@ -237,7 +237,7 @@ jobs:
 
       - name: Build
         run: |
-          make imager installer talosctl \
+          make imager installer \
             BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
             INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
@@ -245,6 +245,9 @@ jobs:
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PUSH="true"
+          make talosctl \
+            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
+            PLATFORM="linux/amd64"
 
       - name: Upload talosctl
         uses: actions/upload-artifact@v4
