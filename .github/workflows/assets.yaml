@@ -74,7 +74,7 @@ jobs:
     needs: [check-releases]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build packages
-    runs-on: [runs-on,runner=16cpu-linux-x64,"run-id=${{ github.run_id }}"]
+    runs-on: [runs-on,runner=16cpu-linux-x64,image=ubuntu22-base-x64,"run-id=${{ github.run_id }}"]
 
     steps:
       - name: Get release tag
@@ -137,7 +137,7 @@ jobs:
     needs: [check-releases, build-pkgs]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build extensions
-    runs-on: [runs-on,runner=16cpu-linux-x64,"run-id=${{ github.run_id }}"]
+    runs-on: [runs-on,runner=16cpu-linux-x64,image=ubuntu22-base-x64,"run-id=${{ github.run_id }}"]
 
     steps:
       - name: Get release tag
@@ -202,7 +202,7 @@ jobs:
     needs: [check-releases, build-pkgs, build-extensions]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build talos
-    runs-on: [runs-on,runner=16cpu-linux-x64,"run-id=${{ github.run_id }}"]
+    runs-on: [runs-on,runner=16cpu-linux-x64,image=ubuntu22-base-x64,"run-id=${{ github.run_id }}"]
 
     steps:
       - name: Checkout
