@@ -107,8 +107,12 @@ jobs:
             git apply -v $file
           done < <(find "./patches/patches/pkgs" -type f -name "*.patch" | sort)
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -166,8 +170,12 @@ jobs:
             git apply -v $file
           done < <(find "./patches/patches/extensions" -type f -name "*.patch" | sort)
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -222,8 +230,12 @@ jobs:
             git apply -v $file
           done < <(find "./patches/patches/talos" -type f -name "*.patch" | sort)
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
