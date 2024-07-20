@@ -74,11 +74,7 @@ jobs:
     needs: [check-releases]
     if: ${{ needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build }}
     name: Build packages
-    runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}-${{ strategy.job-index }}"]
-    strategy:
-      max-parallel: 1
-      matrix:
-        target: ["ca-certificates", "base", "kernel", "nvidia-open-gpu-kernel-modules-pkg"]
+    runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
     steps:
       - name: Get release tag
@@ -130,7 +126,7 @@ jobs:
 
       - name: Build
         run: |
-          make ${{ matrix.target }} \
+          make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg \
             BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
@@ -140,10 +136,7 @@ jobs:
   build-extensions:
     needs: [check-releases, build-pkgs]
     name: Build extensions
-    runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}-${{ strategy.job-index }}"]
-    strategy:
-      matrix:
-        target: ["nvidia-container-toolkit", "nvidia-open-gpu-kernel-modules"]
+    runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
     steps:
       - name: Get release tag
@@ -195,7 +188,7 @@ jobs:
 
       - name: Build
         run: |
-          make ${{ matrix.target }} \
+          make nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
             BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
@@ -207,7 +200,7 @@ jobs:
   build-talos:
     needs: [check-releases, build-pkgs, build-extensions]
     name: Build talos
-    runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
+    runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
     steps:
       - name: Checkout
