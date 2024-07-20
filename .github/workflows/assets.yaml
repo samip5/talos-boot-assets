@@ -74,7 +74,7 @@ jobs:
     needs: [check-releases]
     if: ${{ needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build }}
     name: Build packages
-    runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
+    runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}-${{ strategy.job-index }}"]
     strategy:
       max-parallel: 1
       matrix:
@@ -140,7 +140,7 @@ jobs:
   build-extensions:
     needs: [check-releases, build-pkgs]
     name: Build extensions
-    runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
+    runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}-${{ strategy.job-index }}"]
     strategy:
       matrix:
         target: ["nvidia-container-toolkit", "nvidia-open-gpu-kernel-modules"]
