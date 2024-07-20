@@ -331,7 +331,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: secureboot-installer
-          path: /out/installer-amd64-secureboot.tar
+          path: _out/installer-amd64-secureboot.tar
           if-no-files-found: error
           retention-days: 1
 
@@ -339,7 +339,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: secureboot-iso
-          path: /out/metal-amd64-secureboot.iso
+          path: _out/metal-amd64-secureboot.iso
           if-no-files-found: error
           retention-days: 1
 
