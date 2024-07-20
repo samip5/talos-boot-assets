@@ -287,13 +287,15 @@ jobs:
           UKI_SIGNING_CERT: ${{ secrets.UKI_SIGNING_CERT }}
           UKI_SIGNING_KEY: ${{ secrets.UKI_SIGNING_KEY }}
         run: |
-          mkdir out
-          echo "${PCR_SIGNING_KEY}" > ./out/pcr-signing-key.pem
-          echo "${UKI_SIGNING_CERT}" > ./out/uki-signing-cert.pem
-          echo "${UKI_SIGNING_KEY}" > ./out/uki-signing-key.pem
+          mkdir _out
+          echo "${PCR_SIGNING_KEY}" > ./_out/pcr-signing-key.pem
+          echo "${UKI_SIGNING_CERT}" > ./_out/uki-signing-cert.pem
+          echo "${UKI_SIGNING_KEY}" > ./_out/uki-signing-key.pem
           chmod +x ./talosctl-linux-amd64
           ./talosctl-linux-amd64 gen secureboot database --include-microsoft-certs
-          docker run --rm -v ./out:/secureboot:ro" \
+          mv _out secureboot
+          mkdir _out
+          docker run --rm -v ./secureboot:/secureboot:ro -v ./_out:/_out \
             ghcr.io/${{ github.actor }}/talos/imager:${{ needs.check-releases.outputs.talosReleaseTag }} \
               secureboot-installer \
               --arch amd64 \
@@ -310,7 +312,7 @@ jobs:
               --extra-kernel-arg talos.network.interface.ignore=enp66s0f0 \
               --extra-kernel-arg talos.network.interface.ignore=eth1 \
               --extra-kernel-arg talos.network.interface.ignore=enp66s0f1
-          docker run --rm --privileged -v ./out:/secureboot:ro" -v /dev:/dev \
+          docker run --rm --privileged -v ./secureboot:/secureboot:ro -v ./_out:/_out -v /dev:/dev \
             ghcr.io/${{ github.actor }}/talos/imager:${{ needs.check-releases.outputs.talosReleaseTag }} \
               secureboot-iso \
               --arch amd64 \
