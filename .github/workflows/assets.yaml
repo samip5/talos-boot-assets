@@ -72,7 +72,7 @@ jobs:
 
   build-pkgs:
     needs: [check-releases]
-    if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
+    if: ${{ needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build }}
     name: Build packages
     runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
     strategy:
@@ -139,7 +139,6 @@ jobs:
 
   build-extensions:
     needs: [check-releases, build-pkgs]
-    if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build extensions
     runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
     strategy:
@@ -207,7 +206,6 @@ jobs:
 
   build-talos:
     needs: [check-releases, build-pkgs, build-extensions]
-    if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build talos
     runs-on: [runs-on,runner=16cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
@@ -278,7 +276,6 @@ jobs:
 
   build-boot-assets:
     needs: [check-releases, build-talos]
-    if: needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build
     name: Build boot assets
     runs-on: ubuntu-latest
 
@@ -384,7 +381,6 @@ jobs:
 
   create-release:
     needs: [check-releases, build-boot-assets, push-installer-image]
-    if: needs.check-releases.outputs.newTalosReleaseFound
     name: Create a new release
     runs-on: ubuntu-latest
 
