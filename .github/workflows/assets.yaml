@@ -74,7 +74,7 @@ jobs:
     needs: [check-releases]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build packages
-    runs-on: ubuntu-latest
+    runs-on: [runs-on,runner=16cpu-linux-x64,"run-id=${{ github.run_id }}"]
     strategy:
       max-parallel: 1
       matrix:
@@ -131,7 +131,7 @@ jobs:
       - name: Build
         run: |
           make ${{ matrix.target }} \
-            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
+            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
@@ -141,7 +141,7 @@ jobs:
     needs: [check-releases, build-pkgs]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build extensions
-    runs-on: ubuntu-latest
+    runs-on: [runs-on,runner=16cpu-linux-x64,"run-id=${{ github.run_id }}"]
     strategy:
       matrix:
         target: ["nvidia-container-toolkit", "nvidia-open-gpu-kernel-modules"]
@@ -197,7 +197,7 @@ jobs:
       - name: Build
         run: |
           make ${{ matrix.target }} \
-            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
+            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
@@ -209,7 +209,7 @@ jobs:
     needs: [check-releases, build-pkgs, build-extensions]
     if: ${{ !cancelled() && (needs.check-releases.outputs.newTalosReleaseFound || inputs.force_build) }}
     name: Build talos
-    runs-on: ubuntu-latest
+    runs-on: [runs-on,runner=16cpu-linux-x64,"run-id=${{ github.run_id }}"]
 
     steps:
       - name: Checkout
@@ -257,7 +257,7 @@ jobs:
       - name: Build
         run: |
           make imager installer \
-            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
+            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
             USERNAME="${{ github.actor }}/talos" \
@@ -265,7 +265,7 @@ jobs:
             PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PUSH="true"
           make talosctl \
-            BUILD="docker buildx build --cache-from type=gha --cache-to type=gha,mode=max" \
+            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             PLATFORM="linux/amd64"
 
       - name: Upload talosctl
