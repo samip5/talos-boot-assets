@@ -301,7 +301,7 @@ jobs:
           echo "${PCR_SIGNING_KEY}" > ./out/pcr-signing-key.pem
           echo "${UKI_SIGNING_CERT}" > ./out/uki-signing-cert.pem
           echo "${UKI_SIGNING_KEY}" > ./out/uki-signing-key.pem
-          ./talosctl gen secureboot database --include-microsoft-certs
+          ./talosctl-linux-amd64 gen secureboot database --include-microsoft-certs
           docker run --rm -v ./out:/secureboot:ro" \
             ghcr.io/${{ github.actor }}/talos/imager:${{ needs.check-releases.outputs.talosReleaseTag }} \
               secureboot-installer \
