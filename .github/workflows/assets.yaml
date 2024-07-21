@@ -127,7 +127,6 @@ jobs:
       - name: Build
         run: |
           make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg \
-            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
@@ -189,7 +188,6 @@ jobs:
       - name: Build
         run: |
           make nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
-            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
@@ -248,7 +246,6 @@ jobs:
       - name: Build
         run: |
           make imager installer \
-            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
             USERNAME="${{ github.actor }}/talos" \
@@ -256,7 +253,6 @@ jobs:
             PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PUSH="true"
           make talosctl \
-            BUILD="docker buildx build --cache-from type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }} --cache-to type=s3,blobs_prefix=cache/${{ github.repository }}/,manifests_prefix=cache/${{ github.repository }}/,region=${{ env.RUNS_ON_AWS_REGION }},bucket=${{ env.RUNS_ON_S3_BUCKET_CACHE }},mode=max" \
             PLATFORM="linux/amd64"
 
       - name: Upload talosctl
