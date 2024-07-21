@@ -242,13 +242,14 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  build-boot-assets:
+  build-release:
     needs: [check-releases, build-talos]
-    name: Build boot assets
+    name: Build release
     runs-on: ubuntu-latest
 
     permissions:
       contents: write
+      packages: write
 
     steps:
       - name: Download talosctl
@@ -302,38 +303,6 @@ jobs:
               --extra-kernel-arg bond=bond0:eth2,eth3:mode=802.3ad:1500 \
               --extra-kernel-arg ip=bond0:dhcp
 
-      - name: Upload secureboot-installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: secureboot-installer
-          path: _out/installer-amd64-secureboot.tar
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Upload secureboot-iso
-        uses: actions/upload-artifact@v4
-        with:
-          name: secureboot-iso
-          path: _out/metal-amd64-secureboot.iso
-          if-no-files-found: error
-          retention-days: 1
-
-  push-installer-image:
-    needs: [check-releases, build-boot-assets]
-    name: Push installer image
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Download secureboot-installer
-        uses: actions/download-artifact@v4
-        with:
-          name: secureboot-installer
-          path: /tmp/talos-build-assets
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3.2.0
         with:
@@ -346,23 +315,8 @@ jobs:
         run: |
           crane push \
             --platform linux/amd64 \
-            /tmp/talos-build-assets/installer-amd64-secureboot.tar \
+            _out/installer-amd64-secureboot.tar \
             ghcr.io/${{ github.actor }}/talos/secureboot-installer:${{ needs.check-releases.outputs.talosReleaseTag }}
-
-  create-release:
-    needs: [check-releases, build-boot-assets, push-installer-image]
-    name: Create a new release
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download secureboot-iso
-        uses: actions/download-artifact@v4
-        with:
-          name: secureboot-iso
-          path: /tmp/talos-build-assets
 
       - name: Fetch Talos release body
         id: talos-release-body
@@ -371,9 +325,9 @@ jobs:
           curl -sL https://api.github.com/repos/siderolabs/talos/releases/tags/${{ needs.check-releases.outputs.talosReleaseTag }} | jq -r ".body" >> $GITHUB_OUTPUT
           echo EOF >> $GITHUB_OUTPUT
 
-      - name: Create a new release
+      - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.check-releases.outputs.talosReleaseTag }}
           body: ${{ steps.talos-release-body.outputs.talos_release_body }}
-          files: /tmp/talos-build-assets/metal-amd64-secureboot.iso
+          files: _out/metal-amd64-secureboot.iso
