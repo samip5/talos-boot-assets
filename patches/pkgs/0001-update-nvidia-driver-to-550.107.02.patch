@@ -1,14 +1,14 @@
-From 6b65af4e493aaa2bba73540c2e8690cdf5d2c0e3 Mon Sep 17 00:00:00 2001
+From f8699e9de96fbaafd6e73e743c1c93334c2ca0f8 Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Mon, 15 Jul 2024 19:30:44 -0700
-Subject: [PATCH 4/5] update nvidia driver to 550.100
+Subject: [PATCH 1/4] update nvidia driver to 550.107.02
 
 ---
  Pkgfile | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/Pkgfile b/Pkgfile
-index b661ad8..7d90f48 100644
+index 927ffa5..cda16a7 100644
 --- a/Pkgfile
 +++ b/Pkgfile
 @@ -133,9 +133,9 @@ vars:
@@ -18,9 +18,9 @@ index b661ad8..7d90f48 100644
 -  nvidia_driver_version: 535.129.03
 -  nvidia_driver_sha256: 170ee91b6cd6c801bba0de91e0d62af8e574adde38120bc762784755b5a9821d
 -  nvidia_driver_sha512: c8104103f34365b7a20dcebb64e1eb2e64a7b056b44329fa305f81e267759f2b1bb1c09923e617d4f5f4af3be01c3b8e2e6d739f03d4d0f129b31331fec3a4d8
-+  nvidia_driver_version: 550.100
-+  nvidia_driver_sha256: d284bf619386f35254595bd7743fdd1294a4d6da290e63bb45fa05440648b361
-+  nvidia_driver_sha512: 4125198fc714396a3b52f5cb8b849882376f1d5dc16db0a7ae41ae3e0db0149027503e74dfdf50dbde890c776e303e407534f0c5377b00e7c4b5876e5c553d0f
++  nvidia_driver_version: 550.107.02
++  nvidia_driver_sha256: b96ed0ab2c9d03f76ff85098d08523d4aaa041c580565a7905fe6add69ba2569
++  nvidia_driver_sha512: 91f729491b777fe2dd48db76c1f9326a36b13acb162ecc3b6ec5a3ee09a03d075a4f2bea0824cffcfde2d5bfaeb2d11ff52246270906c447299352ad6790a366
  
    # renovate: datasource=git-tags extractVersion=^openssl-(?<version>.*)$ depName=git://git.openssl.org/openssl.git
    openssl_version: 3.2.1

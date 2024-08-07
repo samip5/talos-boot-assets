@@ -1,4 +1,4 @@
-From 046e31e0515e893404ee674a3071d83748fb9d50 Mon Sep 17 00:00:00 2001
+From 9a2f44109e49e57ba8dfbb1418e83eb49327d98e Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Tue, 16 Jul 2024 21:11:55 -0700
 Subject: [PATCH 1/2] feat(talosctl): append microsoft secure boot certs
