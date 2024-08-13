@@ -25,5 +25,5 @@ index 927ffa5..cda16a7 100644
    # renovate: datasource=git-tags extractVersion=^openssl-(?<version>.*)$ depName=git://git.openssl.org/openssl.git
    openssl_version: 3.2.1
 -- 
-2.45.2
+2.46.0
 
