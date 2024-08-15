@@ -1,22 +1,23 @@
-From c7c085a2c6a22cd16fdcb7ab3ce6c3fe90c15c3d Mon Sep 17 00:00:00 2001
+From 7a43751554915ab32072ea338d31d16d2a93f7c6 Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Sun, 14 Jul 2024 21:49:10 -0700
-Subject: [PATCH 3/4] add exclusions for linux 6.10.3 to kspp checks
+Subject: [PATCH 3/4] update kspp exclusions
 
 ---
- kernel/build/scripts/filter-hardened-check.py | 2 ++
- 1 file changed, 2 insertions(+)
+ kernel/build/scripts/filter-hardened-check.py | 3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/kernel/build/scripts/filter-hardened-check.py b/kernel/build/scripts/filter-hardened-check.py
-index 6a32cec..21ecf5b 100644
+index 6a32cec..db8d11d 100644
 --- a/kernel/build/scripts/filter-hardened-check.py
 +++ b/kernel/build/scripts/filter-hardened-check.py
-@@ -34,6 +34,8 @@ IGNORE_VIOLATIONS = {
+@@ -34,6 +34,9 @@ IGNORE_VIOLATIONS = {
      'CONFIG_SLAB_MERGE_DEFAULT', # fixed in main, backwards compat in release-1.7
      'CONFIG_PAGE_TABLE_CHECK', # fixed in main, backwards compat in release-1.7
      'CONFIG_PAGE_TABLE_CHECK_ENFORCED', # fixed in main, backwards compat in release-1.7
 +    'CONFIG_UBSAN_SANITIZE_ALL', # removed from kernel, see https://lore.kernel.org/all/20240202101642.156588-4-keescook@chromium.org/
 +    'CONFIG_AMD_IOMMU_V2', # removed from kernel, see https://lore.kernel.org/linux-iommu/20230815103255.565295-2-vasant.hegde@amd.com/
++    'CONFIG_INET_DIAG', # required for cilium socket-lb fast failover, see https://docs.cilium.io/en/latest/network/kubernetes/kubeproxy-free/#limitations
  }
  
  """

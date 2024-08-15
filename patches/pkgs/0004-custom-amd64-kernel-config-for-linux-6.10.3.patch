@@ -1,4 +1,4 @@
-From 9b1a484b586fad0f13bb6a72ea7058b86cb3ad6d Mon Sep 17 00:00:00 2001
+From 42404ddfc25c4cfda743aed10442b2330c8ea5c9 Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Sun, 14 Jul 2024 18:13:46 -0700
 Subject: [PATCH 4/4] custom amd64 kernel config for linux 6.10.3
