@@ -86,26 +86,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: siderolabs/pkgs
-          ref: ${{ steps.pkgs-release.outputs.release }}
+          repository: jfroy/siderolabs-pkgs
+          ref: ${{ steps.pkgs-release.outputs.release }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout patches
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository }}
-          ref: ${{ github.sha }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: patches
-          sparse-checkout: patches/pkgs
-          sparse-checkout-cone-mode: false
-
-      - name: Apply patches
-        run: |
-          while IFS= read -r file; do
-            echo "==> Adding $file"
-            git apply -v $file
-          done < <(find "./patches/patches/pkgs" -type f -name "*.patch" | sort)
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
