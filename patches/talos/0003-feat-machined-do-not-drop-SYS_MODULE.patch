@@ -1,0 +1,27 @@
+From 2086c1d313d005d31941bbf040c5793a31c521ef Mon Sep 17 00:00:00 2001
+From: Jean-Francois Roy <jf@devklog.net>
+Date: Sat, 31 Aug 2024 12:50:07 -0700
+Subject: [PATCH 3/3] feat(machined): do not drop SYS_MODULE
+
+It is needed by the nvidia operator machinery.
+---
+ pkg/machinery/constants/constants.go | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/pkg/machinery/constants/constants.go b/pkg/machinery/constants/constants.go
+index 648a9064e..0f6342d7b 100644
+--- a/pkg/machinery/constants/constants.go
++++ b/pkg/machinery/constants/constants.go
+@@ -1027,8 +1027,7 @@ var Overlays = []string{
+ 
+ // DefaultDroppedCapabilities is the default set of capabilities to drop.
+ var DefaultDroppedCapabilities = map[string]struct{}{
+-	"cap_sys_boot":   {},
+-	"cap_sys_module": {},
++	"cap_sys_boot": {},
+ }
+ 
+ // UdevdDroppedCapabilities is the set of capabilities to drop for udevd.
+-- 
+2.46.0
+
