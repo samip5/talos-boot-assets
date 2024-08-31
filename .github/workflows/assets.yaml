@@ -274,8 +274,6 @@ jobs:
               --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
-              --system-extension-image ghcr.io/${{ github.actor }}/talos/nvidia-container-toolkit:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.NVIDIA_CONTAINER_TOOLKIT_VERSION }} \
-              --system-extension-image ghcr.io/${{ github.actor }}/talos/nvidia-open-gpu-kernel-modules:${{ env.NVIDIA_DRIVER_VERSION }}-${{ needs.check-releases.outputs.talosReleaseTag }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
               --extra-kernel-arg amd_pstate=active \
               --extra-kernel-arg console=tty0 \
