@@ -1,15 +1,15 @@
-From d502024db2f0937c512c50524e0b748aefd52f69 Mon Sep 17 00:00:00 2001
+From e36fe63c387b89e1fb1f95c1954a9ddadf00fa13 Mon Sep 17 00:00:00 2001
 From: Jean-Francois Roy <jf@devklog.net>
 Date: Tue, 16 Jul 2024 09:34:01 -0700
-Subject: [PATCH] feat: update nvidia driver to 550.107.02 and nvidia container
+Subject: [PATCH] feat: update nvidia driver to 550.90.07 and nvidia container
  toolkit to v1.16.1
 
 ---
- .../nvidia-container-cli/pkg.yaml                  |  6 +++---
- .../nvidia-container-runtime/pkg.yaml              |  6 +++---
- .../nvidia-container-toolkit/nvidia-pkgs/pkg.yaml  |  8 ++++----
- nvidia-gpu/vars.yaml                               | 14 +++++++-------
- 4 files changed, 17 insertions(+), 17 deletions(-)
+ .../nvidia-container-cli/pkg.yaml                |  6 +++---
+ .../nvidia-container-runtime/pkg.yaml            |  6 +++---
+ .../nvidia-pkgs/pkg.yaml                         |  8 ++++----
+ nvidia-gpu/vars.yaml                             | 16 ++++++++--------
+ 4 files changed, 18 insertions(+), 18 deletions(-)
 
 diff --git a/nvidia-gpu/nvidia-container-toolkit/nvidia-container-cli/pkg.yaml b/nvidia-gpu/nvidia-container-toolkit/nvidia-container-cli/pkg.yaml
 index b57b10d..e7c6e5f 100644
@@ -48,7 +48,7 @@ index e38b3a0..cbb7cfd 100644
        GIT_COMMIT: {{ substr 0 7 .CONTAINER_TOOLKIT_REF }} # build is using short sha
      prepare:
 diff --git a/nvidia-gpu/nvidia-container-toolkit/nvidia-pkgs/pkg.yaml b/nvidia-gpu/nvidia-container-toolkit/nvidia-pkgs/pkg.yaml
-index 84c2191..89b5cc1 100644
+index 84c2191..16f72f9 100644
 --- a/nvidia-gpu/nvidia-container-toolkit/nvidia-pkgs/pkg.yaml
 +++ b/nvidia-gpu/nvidia-container-toolkit/nvidia-pkgs/pkg.yaml
 @@ -13,13 +13,13 @@ steps:
@@ -57,25 +57,25 @@ index 84c2191..89b5cc1 100644
          destination: nvidia.run
 -        sha256: 8ba8d961457a241bcdf91b76d6fe2f36cb473c8bbdb02fb6650a622ce2e85b33
 -        sha512: 706de7e53b81f909d8bc6a12a39c594754a164c49f5d23c7939dc3abcfc04f5d5b12b7d65762ae574582149a098f06ee5fe95be4f8ad1056a3307a6ce93f3c00
-+        sha256: 99511e1561ce172865dd31b1d71cb91219c84bf9d1328a10dfe2ddc867baf534
-+        sha512: a62d5d13089dbc98c022cb3bdf00999d79da7ae370c6e84405ca9e32034f19fcea65ac74845323223f1a8b8f1443e506c60704ba56e6f5add04b2a007d2d443c
++        sha256: b896b76ae465307afc5b269c40bd8ccb279e6ea7d3ecae95534a91ecb1971572
++        sha512: 79b956ad890a096bfb00c9dd996cba0673200b1d61f702ea6c5c64ca3fe2cefdd61e2bc844fdb7b4668c2796af5399be51e6f511565c3799cf731de2a7e9efaa
      # {{ else }} This in fact is YAML comment, but Go templating instruction is evaluated by bldr
        - url: https://download.nvidia.com/XFree86/Linux-x86_64/{{ .NVIDIA_DRIVER_VERSION }}/NVIDIA-Linux-x86_64-{{ .NVIDIA_DRIVER_VERSION }}-no-compat32.run
          destination: nvidia.run
 -        sha256: ffed07a30323fd6cf9caad3fb45e6259223135f6004d832511921a788f719ba6
 -        sha512: f75c288b27a17ea8c63dac68cda01b94184b41332778df6a702d30d814c407c1e45f30bd7c81511508ace6560a16e79c24e8698f457aaee3ee1d03c57725ab27
-+        sha256: 94299354125c6aa1c98fd7f9ebb26a73b6a39205c84b4790888c1949c890b0a3
-+        sha512: a2e4464ce5e4cfb57658175ef2688f1f4f0bdf095a383240bac8737febe9bacc8633481fd3e7e38813187111726f451a9d2980b857a714dd2e40b055be3ce49c
++        sha256: 5a92545013649d6435d46fc8b5af617f4e3fdea78ee435e034c14bc47557c117
++        sha512: 9df55bd659c909d879a95e9b740487ba69c8b30be1f2c43be405c41899b3ad8eb493daaed9f0eca02d8a78729fcdd49e00c3d86e9c2b39a7644724bbf8195386
      # {{ end }} This in fact is YAML comment, but Go templating instruction is evaluated by bldr
      prepare:
        - |
 diff --git a/nvidia-gpu/vars.yaml b/nvidia-gpu/vars.yaml
-index d4911dd..27b1780 100644
+index d4911dd..51addea 100644
 --- a/nvidia-gpu/vars.yaml
 +++ b/nvidia-gpu/vars.yaml
 @@ -1,12 +1,12 @@
  # only update if there's a matching fabric manager version
- # renovate: datasource=github-releases depName=nvidia/open-gpu-kernel-modules
+-# renovate: datasource=github-releases depName=nvidia/open-gpu-kernel-modules
 -NVIDIA_DRIVER_VERSION: 535.129.03
 -# renovate: datasource=git-tags depName=https://gitlab.com/nvidia/container-toolkit/container-toolkit.git
 -CONTAINER_TOOLKIT_VERSION: v1.14.6
@@ -83,7 +83,8 @@ index d4911dd..27b1780 100644
 -# renovate: datasource=git-tags depName=https://gitlab.com/nvidia/container-toolkit/libnvidia-container.git
 -LIBNVIDIA_CONTAINER_VERSION: v1.14.6
 -LIBNVIDIA_CONTAINER_REF: d2eb0afe86f0b643e33624ee64f065dd60e952d4
-+NVIDIA_DRIVER_VERSION: 550.107.02
++  # cannot use renovate from nvidia/open-gpu-kernel-modules as it will pick up all sorts of pre-release versions
++NVIDIA_DRIVER_VERSION: 550.90.07
 +# renovate: datasource=github-releases depName=NVIDIA/nvidia-container-toolkit
 +CONTAINER_TOOLKIT_VERSION: v1.16.1
 +CONTAINER_TOOLKIT_REF: a470818ba7d9166be282cd0039dd2fc9b0a34d73
@@ -94,5 +95,5 @@ index d4911dd..27b1780 100644
  WOLFI_BASE_REF: sha256:3d6dece13cdb5546cd03b20e14f9af354bc1a56ab5a7b47dca3e6c1557211fcf
  # renovate: datasource=git-tags extractVersion=^glibc-(?<version>.*)$ depName=https://sourceware.org/git/glibc.git
 -- 
-2.45.2
+2.46.0
 
