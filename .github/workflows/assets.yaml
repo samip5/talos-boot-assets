@@ -136,26 +136,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: siderolabs/extensions
-          ref: ${{ steps.extensions-release.outputs.release }}
+          repository: jfroy/siderolabs-extensions
+          ref: ${{ steps.extensions-release.outputs.release }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Checkout patches
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository }}
-          ref: ${{ github.sha }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          path: patches
-          sparse-checkout: patches/extensions
-          sparse-checkout-cone-mode: false
-
-      - name: Apply patches
-        run: |
-          while IFS= read -r file; do
-            echo "==> Adding $file"
-            git apply -v $file
-          done < <(find "./patches/patches/extensions" -type f -name "*.patch" | sort)
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -173,7 +156,6 @@ jobs:
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
-            TAG="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             USERNAME="${{ github.actor }}/talos" \
             PUSH=true
 
