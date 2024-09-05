@@ -23,6 +23,7 @@ env:
   TALOS_VERSION: "${{ inputs.version || 'latest' }}"
   # renovate: depName=ghcr.io/siderolabs/amd-ucode
   AMD_UCODE_VERSION: "20240513"
+  GLIBC_VERSION: "2.39"
   # renovate: depName=ghcr.io/siderolabs/iscsi-tools
   ISCSI_TOOLS_VERSION: "v0.1.4"
   NVIDIA_CONTAINER_TOOLKIT_VERSION: "v1.16.1"
@@ -152,7 +153,7 @@ jobs:
 
       - name: Build
         run: |
-          make nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
+          make glibc nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talosReleaseTag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
@@ -255,6 +256,7 @@ jobs:
               --arch amd64 \
               --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talosReleaseTag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
+              --system-extension-image ghcr.io/jfroy/talos/glibc:${{ env.GLIBC_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
               --extra-kernel-arg amd_pstate=active \
