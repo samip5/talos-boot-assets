@@ -51,6 +51,8 @@ jobs:
             talos_release_tag="${{ env.TALOS_VERSION }}"
           fi
           echo "talos_release_tag=$talos_release_tag" >> $GITHUB_OUTPUT
+          release_branch=release-$(grep -Eo '[0-9]\.[0-9]+' <<< $talos_release_tag)
+          echo "release_branch=$release_branch" >> $GITHUB_OUTPUT
 
       - name: Fetch latest Boot Assets release version
         id: boot-asset-release
@@ -61,21 +63,23 @@ jobs:
       - name: Compare release versions
         id: compare-releases
         run: |
-          compare_result=$(./.github/scripts/semver2.sh \
+          cmp=$(./.github/scripts/semver2.sh \
             ${{ steps.talos-release.outputs.talos_release_tag }} \
             ${{ steps.boot-asset-release.outputs.boot_assets_release_tag }})
-          echo "new_release=$compare_result" >> $GITHUB_OUTPUT
-          release_branch=release-$(grep -Eo '[0-9]\.[0-9]+' <<< '${{ steps.talos-release.outputs.talos_release_tag }}')
-          echo "release_branch=$release_branch" >> $GITHUB_OUTPUT
+          if [[ $cmp == 0 ]]; then
+            echo "new_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "new_release=true" >> $GITHUB_OUTPUT
+          fi
 
     outputs:
       new_release: ${{ steps.compare-releases.outputs.new_release }}
-      release_branch: ${{ steps.compare-releases.outputs.release_branch }}
+      release_branch: ${{ steps.talos-release.outputs.release_branch }}
       talos_release_tag: ${{ steps.talos-release.outputs.talos_release_tag }}
 
   build-pkgs:
     needs: [check-releases]
-    if: ${{ needs.check-releases.outputs.new_release || inputs.force_build }}
+    if: ${{ needs.check-releases.outputs.new_release == 'true' || inputs.force_build }}
     name: Build packages
     runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
