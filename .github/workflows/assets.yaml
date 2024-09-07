@@ -13,8 +13,6 @@ on:
         type: boolean
         default: false
         required: false
-  schedule:
-    - cron: "0 * * * *"
 
 concurrency:
   group: ${{ github.actor }}-build
