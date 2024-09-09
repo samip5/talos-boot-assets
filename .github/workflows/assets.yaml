@@ -28,6 +28,7 @@ env:
   NVIDIA_DRIVER_VERSION: "550.107.02"
   # renovate: depName=ghcr.io/siderolabs/util-linux-tools
   UTIL_LINUX_TOOLS_VERSION: "2.39.3"
+  ZFS_VERSION: "2.2.6"
 
 jobs:
   check-releases:
@@ -114,7 +115,7 @@ jobs:
 
       - name: Build
         run: |
-          make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg \
+          make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg zfs-pkg \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talos_release_tag }}" \
@@ -145,7 +146,7 @@ jobs:
 
       - name: Build
         run: |
-          make glibc nvidia-container-toolkit nvidia-open-gpu-kernel-modules \
+          make glibc nvidia-container-toolkit nvidia-open-gpu-kernel-modules zfs \
             PLATFORM=linux/amd64 \
             PKGS="${{ needs.check-releases.outputs.talos_release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
@@ -230,8 +231,9 @@ jobs:
               secureboot-installer \
               --arch amd64 \
               --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talos_release_tag }} \
-              --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/jfroy/talos/glibc:${{ env.GLIBC_VERSION }} \
+              --system-extension-image ghcr.io/jfroy/talos/zfs:${{ env.ZFS_VERSION }}-${{ needs.check-releases.outputs.talos_release_tag }} \
+              --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
               --extra-kernel-arg amd_pstate=active \
