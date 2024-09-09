@@ -89,7 +89,7 @@ jobs:
 
       - name: Build
         run: |
-          make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg zfs-pkg \
+          make ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ inputs.talos_release_tag }}" \
@@ -121,7 +121,7 @@ jobs:
 
       - name: Build
         run: |
-          make glibc nvidia-container-toolkit nvidia-open-gpu-kernel-modules zfs \
+          make glibc nvidia-container-toolkit nvidia-open-gpu-kernel-modules-production zfs \
             PLATFORM=linux/amd64 \
             PKGS="${{ inputs.talos_release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
