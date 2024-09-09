@@ -13,6 +13,21 @@ on:
         type: boolean
         default: false
         required: false
+      build_pkgs:
+        description: Build pkgs (kernel, drivers)
+        type: boolean
+        default: true
+        required: false
+      build_extensions:
+        description: Build extensions
+        type: boolean
+        default: true
+        required: false
+      build_talos:
+        description: Build talos
+        type: boolean
+        default: true
+        required: false
 
 concurrency:
   group: ${{ github.actor }}-build
@@ -78,7 +93,7 @@ jobs:
 
   build-pkgs:
     needs: [check-releases]
-    if: ${{ needs.check-releases.outputs.new_release == 'true' || inputs.force_build }}
+    if: ${{ !failure() && inputs.build_pkgs && (needs.check-releases.outputs.new_release == 'true' || inputs.force_build) }}
     name: Build packages
     runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
@@ -123,6 +138,7 @@ jobs:
 
   build-extensions:
     needs: [check-releases, build-pkgs]
+    if: ${{ !failure() && inputs.build_extensions && (needs.check-releases.outputs.new_release == 'true' || inputs.force_build) }}
     name: Build extensions
     runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
@@ -156,6 +172,7 @@ jobs:
 
   build-talos:
     needs: [check-releases, build-pkgs, build-extensions]
+    if: ${{ !failure() && inputs.build_talos && (needs.check-releases.outputs.new_release == 'true' || inputs.force_build) }}
     name: Build talos
     runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
@@ -200,6 +217,7 @@ jobs:
 
   build-release:
     needs: [check-releases, build-talos]
+    if: ${{ !failure() }}
     name: Build release
     runs-on: ubuntu-latest
 
