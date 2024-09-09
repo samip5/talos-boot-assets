@@ -34,15 +34,12 @@ concurrency:
 
 env:
   TALOS_VERSION: "${{ inputs.version || 'latest' }}"
-  # renovate: depName=ghcr.io/siderolabs/amd-ucode
-  AMD_UCODE_VERSION: "20240513"
-  GLIBC_VERSION: "2.39"
-  # renovate: depName=ghcr.io/siderolabs/iscsi-tools
-  ISCSI_TOOLS_VERSION: "v0.1.4"
+  AMD_UCODE_VERSION: "20240811"
+  GLIBC_VERSION: "2.40"
+  ISCSI_TOOLS_VERSION: "v0.1.5"
   NVIDIA_CONTAINER_TOOLKIT_VERSION: "v1.16.1"
-  NVIDIA_DRIVER_VERSION: "550.107.02"
-  # renovate: depName=ghcr.io/siderolabs/util-linux-tools
-  UTIL_LINUX_TOOLS_VERSION: "2.39.3"
+  NVIDIA_DRIVER_VERSION: "550.90.07"
+  UTIL_LINUX_TOOLS_VERSION: "2.40.2"
   ZFS_VERSION: "2.2.6"
 
 jobs:
