@@ -202,7 +202,6 @@ jobs:
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
               --extra-kernel-arg amd_pstate=active \
               --extra-kernel-arg console=tty0 \
-              --extra-kernel-arg console=ttyS0 \
               --extra-kernel-arg talos.network.interface.ignore=eth0 \
               --extra-kernel-arg talos.network.interface.ignore=enp66s0f0 \
               --extra-kernel-arg talos.network.interface.ignore=eth1 \
@@ -215,7 +214,6 @@ jobs:
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
               --extra-kernel-arg console=tty0 \
-              --extra-kernel-arg console=ttyS0 \
               --extra-kernel-arg net.ifnames=0 \
               --extra-kernel-arg talos.network.interface.ignore=eth0 \
               --extra-kernel-arg talos.network.interface.ignore=eth1 \
