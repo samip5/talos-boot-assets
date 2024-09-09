@@ -187,7 +187,7 @@ jobs:
           echo "${UKI_SIGNING_KEY}" > ./_out/uki-signing-key.pem
           docker run --rm -v ./_out:/_out \
             ghcr.io/${{ github.actor }}/talos/talosctl:${{ inputs.talos_release_tag }} \
-              gen secureboot database --include-microsoft-certs
+              gen secureboot database --include-well-known-uefi-certs
           mv _out secureboot
           mkdir _out
           docker run --rm -v ./secureboot:/secureboot:ro -v ./_out:/out \
