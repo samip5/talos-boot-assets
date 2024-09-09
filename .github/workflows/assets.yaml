@@ -151,7 +151,8 @@ jobs:
             PKGS="${{ needs.check-releases.outputs.talos_release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
             USERNAME="${{ github.actor }}/talos" \
-            PUSH=true
+            TAG="${{ needs.check-releases.outputs.talos_release_tag }}" \
+            PUSH="true"
 
   build-talos:
     needs: [check-releases, build-pkgs, build-extensions]
@@ -182,9 +183,9 @@ jobs:
           make imager installer \
             INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
+            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ needs.check-releases.outputs.talos_release_tag }}" \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ needs.check-releases.outputs.talos_release_tag }}" \
-            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ needs.check-releases.outputs.talos_release_tag }}" \
             PUSH="true"
           make talosctl \
             PLATFORM="linux/amd64"
