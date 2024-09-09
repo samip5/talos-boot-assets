@@ -4,15 +4,9 @@ name: Talos Boot Assets Generation
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: Talos version
-        default: latest
-        required: false
-      force_build:
-        description: Force build
-        type: boolean
-        default: false
-        required: false
+      talos_release_tag:
+        description: Talos release tag
+        required: true
       build_pkgs:
         description: Build pkgs (kernel, drivers)
         type: boolean
@@ -33,7 +27,6 @@ concurrency:
   group: ${{ github.actor }}-build
 
 env:
-  TALOS_VERSION: "${{ inputs.version || 'latest' }}"
   AMD_UCODE_VERSION: "20240811"
   GLIBC_VERSION: "2.40"
   ISCSI_TOOLS_VERSION: "v0.1.5"
@@ -43,54 +36,23 @@ env:
   ZFS_VERSION: "2.2.6"
 
 jobs:
-  check-releases:
-    name: Check for new releases
+  set-rel:
+    name: Set release branch
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Fetch Talos release version
-        id: talos-release
+        id: set
         run: |
-          if [ "${{ env.TALOS_VERSION }}" == "latest" ]; then
-            talos_release_tag=$(curl -sL https://api.github.com/repos/siderolabs/talos/releases/latest | jq -r ".tag_name")
-          else
-            talos_release_tag="${{ env.TALOS_VERSION }}"
-          fi
-          echo "talos_release_tag=$talos_release_tag" >> $GITHUB_OUTPUT
-          release_branch=release-$(grep -Eo '[0-9]\.[0-9]+' <<< $talos_release_tag)
+          release_branch=release-$(grep -Eo '[0-9]\.[0-9]+' <<< ${{ inputs.talos_release_tag }})
           echo "release_branch=$release_branch" >> $GITHUB_OUTPUT
 
-      - name: Fetch latest Boot Assets release version
-        id: boot-asset-release
-        run: |
-          boot_assets_release_tag=$(curl -sL https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r ".tag_name")
-          echo "boot_assets_release_tag=$boot_assets_release_tag" >> $GITHUB_OUTPUT
-
-      - name: Compare release versions
-        id: compare-releases
-        run: |
-          cmp=$(./.github/scripts/semver2.sh \
-            ${{ steps.talos-release.outputs.talos_release_tag }} \
-            ${{ steps.boot-asset-release.outputs.boot_assets_release_tag }})
-          if [[ $cmp == 0 ]]; then
-            echo "new_release=false" >> $GITHUB_OUTPUT
-          else
-            echo "new_release=true" >> $GITHUB_OUTPUT
-          fi
-
     outputs:
-      new_release: ${{ steps.compare-releases.outputs.new_release }}
-      release_branch: ${{ steps.talos-release.outputs.release_branch }}
-      talos_release_tag: ${{ steps.talos-release.outputs.talos_release_tag }}
+      release_branch: ${{ steps.set.outputs.release_branch }}
 
   build-pkgs:
-    needs: [check-releases]
-    if: ${{ !failure() && inputs.build_pkgs && (needs.check-releases.outputs.new_release == 'true' || inputs.force_build) }}
+    needs: [set-rel]
+    if: ${{ !failure() && inputs.build_pkgs }}
     name: Build packages
     runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
@@ -99,7 +61,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: jfroy/siderolabs-pkgs
-          ref: ${{ needs.check-releases.outputs.release_branch }}-jfroy
+          ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
@@ -130,12 +92,12 @@ jobs:
           make ca-certificates base kernel nvidia-open-gpu-kernel-modules-pkg zfs-pkg \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
-            TAG="${{ needs.check-releases.outputs.talos_release_tag }}" \
+            TAG="${{ inputs.talos_release_tag }}" \
             PUSH="true"
 
   build-extensions:
-    needs: [check-releases, build-pkgs]
-    if: ${{ !failure() && inputs.build_extensions && (needs.check-releases.outputs.new_release == 'true' || inputs.force_build) }}
+    needs: [set-rel, build-pkgs]
+    if: ${{ !failure() && inputs.build_extensions }}
     name: Build extensions
     runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
@@ -144,7 +106,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: jfroy/siderolabs-extensions
-          ref: ${{ needs.check-releases.outputs.release_branch }}-jfroy
+          ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
@@ -161,15 +123,15 @@ jobs:
         run: |
           make glibc nvidia-container-toolkit nvidia-open-gpu-kernel-modules zfs \
             PLATFORM=linux/amd64 \
-            PKGS="${{ needs.check-releases.outputs.talos_release_tag }}" \
+            PKGS="${{ inputs.talos_release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
             USERNAME="${{ github.actor }}/talos" \
-            TAG="${{ needs.check-releases.outputs.talos_release_tag }}" \
+            TAG="${{ inputs.talos_release_tag }}" \
             PUSH="true"
 
   build-talos:
-    needs: [check-releases, build-pkgs, build-extensions]
-    if: ${{ !failure() && inputs.build_talos && (needs.check-releases.outputs.new_release == 'true' || inputs.force_build) }}
+    needs: [set-rel, build-pkgs, build-extensions]
+    if: ${{ !failure() && inputs.build_talos }}
     name: Build talos
     runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
@@ -178,7 +140,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: jfroy/siderolabs-talos
-          ref: ${{ needs.check-releases.outputs.release_branch }}-jfroy
+          ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
@@ -197,13 +159,13 @@ jobs:
           make imager installer talosctl-image \
             INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
-            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ needs.check-releases.outputs.talos_release_tag }}" \
+            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ inputs.talos_release_tag }}" \
             USERNAME="${{ github.actor }}/talos" \
-            TAG="${{ needs.check-releases.outputs.talos_release_tag }}" \
+            TAG="${{ inputs.talos_release_tag }}" \
             PUSH="true"
 
   build-release:
-    needs: [check-releases, build-talos]
+    needs: [set-rel, build-talos]
     if: ${{ !failure() }}
     name: Build release
     runs-on: ubuntu-latest
@@ -224,17 +186,17 @@ jobs:
           echo "${UKI_SIGNING_CERT}" > ./_out/uki-signing-cert.pem
           echo "${UKI_SIGNING_KEY}" > ./_out/uki-signing-key.pem
           docker run --rm -v ./_out:/_out \
-            ghcr.io/${{ github.actor }}/talos/talosctl:${{ needs.check-releases.outputs.talos_release_tag }} \
+            ghcr.io/${{ github.actor }}/talos/talosctl:${{ inputs.talos_release_tag }} \
               gen secureboot database --include-microsoft-certs
           mv _out secureboot
           mkdir _out
           docker run --rm -v ./secureboot:/secureboot:ro -v ./_out:/out \
-            ghcr.io/${{ github.actor }}/talos/imager:${{ needs.check-releases.outputs.talos_release_tag }} \
+            ghcr.io/${{ github.actor }}/talos/imager:${{ inputs.talos_release_tag }} \
               secureboot-installer \
               --arch amd64 \
-              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talos_release_tag }} \
+              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.talos_release_tag }} \
               --system-extension-image ghcr.io/jfroy/talos/glibc:${{ env.GLIBC_VERSION }} \
-              --system-extension-image ghcr.io/jfroy/talos/zfs:${{ env.ZFS_VERSION }}-${{ needs.check-releases.outputs.talos_release_tag }} \
+              --system-extension-image ghcr.io/jfroy/talos/zfs:${{ env.ZFS_VERSION }}-${{ inputs.talos_release_tag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
@@ -246,10 +208,10 @@ jobs:
               --extra-kernel-arg talos.network.interface.ignore=eth1 \
               --extra-kernel-arg talos.network.interface.ignore=enp66s0f1
           docker run --rm --privileged -v ./secureboot:/secureboot:ro -v ./_out:/out -v /dev:/dev \
-            ghcr.io/${{ github.actor }}/talos/imager:${{ needs.check-releases.outputs.talos_release_tag }} \
+            ghcr.io/${{ github.actor }}/talos/imager:${{ inputs.talos_release_tag }} \
               secureboot-iso \
               --arch amd64 \
-              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ needs.check-releases.outputs.talos_release_tag }} \
+              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.talos_release_tag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
               --extra-kernel-arg console=tty0 \
@@ -273,18 +235,18 @@ jobs:
           crane push \
             --platform linux/amd64 \
             _out/installer-amd64-secureboot.tar \
-            ghcr.io/${{ github.actor }}/talos/secureboot-installer:${{ needs.check-releases.outputs.talos_release_tag }}
+            ghcr.io/${{ github.actor }}/talos/secureboot-installer:${{ inputs.talos_release_tag }}
 
       - name: Fetch Talos release body
         id: talos-release-body
         run: |
           echo 'talos_release_body<<EOF' >> $GITHUB_OUTPUT
-          curl -sL https://api.github.com/repos/siderolabs/talos/releases/tags/${{ needs.check-releases.outputs.talos_release_tag }} | jq -r ".body" >> $GITHUB_OUTPUT
+          curl -sL https://api.github.com/repos/siderolabs/talos/releases/tags/${{ inputs.talos_release_tag }} | jq -r ".body" >> $GITHUB_OUTPUT
           echo EOF >> $GITHUB_OUTPUT
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.check-releases.outputs.talos_release_tag }}
+          tag_name: ${{ inputs.talos_release_tag }}
           body: ${{ steps.talos-release-body.outputs.talos_release_body }}
           files: _out/metal-amd64-secureboot.iso
