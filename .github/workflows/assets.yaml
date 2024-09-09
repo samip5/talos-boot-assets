@@ -121,7 +121,7 @@ jobs:
 
       - name: Build
         run: |
-          make glibc nvidia-container-toolkit nvidia-open-gpu-kernel-modules-production zfs \
+          make glibc nvidia-container-toolkit-production nvidia-open-gpu-kernel-modules-production zfs \
             PLATFORM=linux/amd64 \
             PKGS="${{ inputs.talos_release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
