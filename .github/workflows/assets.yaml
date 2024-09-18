@@ -4,8 +4,8 @@ name: Talos Boot Assets Generation
 on:
   workflow_dispatch:
     inputs:
-      image_tag:
-        description: Container image tag
+      release_tag:
+        description: Container image tag for the release
         required: true
       build_pkgs:
         description: Build pkgs
@@ -22,6 +22,11 @@ on:
         type: boolean
         default: true
         required: false
+      build_nvidia_driver_container:
+        description: Build NVIDIA driver container
+        type: boolean
+        default: true
+        required: false
 
 concurrency:
   group: ${{ github.actor }}-build
@@ -29,8 +34,8 @@ concurrency:
 env:
   AMD_UCODE_VERSION: "20240811"
   GLIBC_VERSION: "2.40"
+  KERNEL_VERSION: "6.10.6-talos"
   ISCSI_TOOLS_VERSION: "v0.1.5"
-  NVIDIA_CONTAINER_TOOLKIT_VERSION: "v1.16.1"
   NVIDIA_DRIVER_VERSION: "550.90.07"
   UTIL_LINUX_TOOLS_VERSION: "2.40.2"
   ZFS_VERSION: "2.2.6"
@@ -44,7 +49,7 @@ jobs:
       - name: Set release branch
         id: set
         run: |
-          release_branch=release-$(grep -Eo '[0-9]\.[0-9]+' <<< ${{ inputs.image_tag }})
+          release_branch=release-$(grep -Eo '[0-9]\.[0-9]+' <<< ${{ inputs.release_tag }})
           echo "release_branch=$release_branch" >> $GITHUB_OUTPUT
 
     outputs:
@@ -92,7 +97,7 @@ jobs:
           make ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
-            TAG="${{ inputs.image_tag }}" \
+            TAG="${{ inputs.release_tag }}" \
             PUSH="true"
 
   build-extensions:
@@ -123,10 +128,10 @@ jobs:
         run: |
           make glibc nvidia-container-toolkit-production nvidia-open-gpu-kernel-modules-production zfs \
             PLATFORM=linux/amd64 \
-            PKGS="${{ inputs.image_tag }}" \
+            PKGS="${{ inputs.release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
             USERNAME="${{ github.actor }}/talos" \
-            TAG="${{ inputs.image_tag }}" \
+            TAG="${{ inputs.release_tag }}" \
             PUSH="true"
 
   build-talos:
@@ -159,14 +164,14 @@ jobs:
           make imager installer talosctl-image \
             INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
-            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ inputs.image_tag }}" \
+            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ inputs.release_tag }}" \
             USERNAME="${{ github.actor }}/talos" \
-            TAG="${{ inputs.image_tag }}" \
+            TAG="${{ inputs.release_tag }}" \
             PUSH="true"
 
   build-release:
     needs: [set-rel, build-talos]
-    if: ${{ !failure() }}
+    if: ${{ success() }}
     name: Build release
     runs-on: ubuntu-latest
 
@@ -186,17 +191,17 @@ jobs:
           echo "${UKI_SIGNING_CERT}" > ./_out/uki-signing-cert.pem
           echo "${UKI_SIGNING_KEY}" > ./_out/uki-signing-key.pem
           docker run --rm -v ./_out:/_out \
-            ghcr.io/${{ github.actor }}/talos/talosctl:${{ inputs.image_tag }} \
+            ghcr.io/${{ github.actor }}/talos/talosctl:${{ inputs.release_tag }} \
               gen secureboot database --include-well-known-uefi-certs
           mv _out secureboot
           mkdir _out
           docker run --rm -v ./secureboot:/secureboot:ro -v ./_out:/out \
-            ghcr.io/${{ github.actor }}/talos/imager:${{ inputs.image_tag }} \
+            ghcr.io/${{ github.actor }}/talos/imager:${{ inputs.release_tag }} \
               secureboot-installer \
               --arch amd64 \
-              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.image_tag }} \
+              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.release_tag }} \
               --system-extension-image ghcr.io/jfroy/talos/glibc:${{ env.GLIBC_VERSION }} \
-              --system-extension-image ghcr.io/jfroy/talos/zfs:${{ env.ZFS_VERSION }}-${{ inputs.image_tag }} \
+              --system-extension-image ghcr.io/jfroy/talos/zfs:${{ env.ZFS_VERSION }}-${{ inputs.release_tag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
@@ -207,10 +212,10 @@ jobs:
               --extra-kernel-arg talos.network.interface.ignore=eth1 \
               --extra-kernel-arg talos.network.interface.ignore=enp66s0f1
           docker run --rm --privileged -v ./secureboot:/secureboot:ro -v ./_out:/out -v /dev:/dev \
-            ghcr.io/${{ github.actor }}/talos/imager:${{ inputs.image_tag }} \
+            ghcr.io/${{ github.actor }}/talos/imager:${{ inputs.release_tag }} \
               secureboot-iso \
               --arch amd64 \
-              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.image_tag }} \
+              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.release_tag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
               --extra-kernel-arg console=tty0 \
@@ -233,4 +238,40 @@ jobs:
           crane push \
             --platform linux/amd64 \
             _out/installer-amd64-secureboot.tar \
-            ghcr.io/${{ github.actor }}/talos/secureboot-installer:${{ inputs.image_tag }}
+            ghcr.io/${{ github.actor }}/talos/secureboot-installer:${{ inputs.release_tag }}
+
+  build-nvidia-driver-container:
+    needs: [set-rel, build-pkgs]
+    if: ${{ !failure() && inputs.build_nvidia_driver_container }}
+    name: Build NVIDIA driver container
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: jfroy/gpu-driver-container
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        run: |
+          cd talos
+          docker buildx build \
+            --build-arg DRIVER_VERSION=${{ env.NVIDIA_DRIVER_VERSION }} \
+            --build-arg KERNEL_VERSION=${{ env.KERNEL_VERSION }} \
+            --build-arg TALOS_VERSION=${{ inputs.release_tag }} \
+            -t ghcr.io/${{ github.actor }}/talos/nvidia-driver:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.KERNEL_VERSION }}-talos${{ inputs.release_tag }} \
+            --push \
+            .
