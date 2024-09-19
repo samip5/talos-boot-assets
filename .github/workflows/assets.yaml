@@ -25,7 +25,7 @@ on:
       build_nvidia_driver_container:
         description: Build NVIDIA driver container
         type: boolean
-        default: true
+        default: false
         required: false
 
 concurrency:
@@ -126,7 +126,7 @@ jobs:
 
       - name: Build
         run: |
-          make glibc nvidia-container-toolkit-production nvidia-open-gpu-kernel-modules-production zfs \
+          make glibc nvidia-driver-production zfs \
             PLATFORM=linux/amd64 \
             PKGS="${{ inputs.release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
@@ -201,6 +201,7 @@ jobs:
               --arch amd64 \
               --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.release_tag }} \
               --system-extension-image ghcr.io/jfroy/talos/glibc:${{ env.GLIBC_VERSION }} \
+              --system-extension-image ghcr.io/jfroy/talos/nvidia-driver-production:${{ env.NVIDIA_DRIVER_VERSION }}-${{ inputs.release_tag }} \
               --system-extension-image ghcr.io/jfroy/talos/zfs:${{ env.ZFS_VERSION }}-${{ inputs.release_tag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
