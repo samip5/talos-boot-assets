@@ -102,7 +102,7 @@ jobs:
 
   build-extensions:
     needs: [set-rel, build-pkgs]
-    if: ${{ !failure() && inputs.build_extensions }}
+    if: ${{ !failure() && (inputs.build_extensions || needs.build-pkgs.result == 'success') }}
     name: Build extensions
     runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
@@ -135,8 +135,8 @@ jobs:
             PUSH="true"
 
   build-talos:
-    needs: [set-rel, build-pkgs, build-extensions]
-    if: ${{ !failure() && inputs.build_talos }}
+    needs: [set-rel, build-pkgs]
+    if: ${{ !failure() && (inputs.build_talos || needs.build-pkgs.result == 'success') }}
     name: Build talos
     runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
@@ -170,7 +170,7 @@ jobs:
             PUSH="true"
 
   build-release:
-    needs: [set-rel, build-talos]
+    needs: [set-rel, build-talos, build-extensions]
     if: ${{ success() }}
     name: Build release
     runs-on: ubuntu-latest
