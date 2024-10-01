@@ -206,6 +206,7 @@ jobs:
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
+              --extra-kernel-arg lsm=landlock,lockdown,yama,apparmor,bpf \
               --extra-kernel-arg lsm.debug \
               --extra-kernel-arg amd_pstate=active \
               --extra-kernel-arg console=tty0 \
