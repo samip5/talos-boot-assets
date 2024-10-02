@@ -94,7 +94,7 @@ jobs:
 
       - name: Build
         run: |
-          make ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg \
+          make ca-certificates cryptsetup base kernel lvm2 nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg \
             PLATFORM=linux/amd64 \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ inputs.release_tag }}" \
@@ -164,7 +164,9 @@ jobs:
           make imager installer talosctl-image \
             INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
+            PKG_CRYPTSETUP="ghcr.io/${{ github.actor }}/talos/cryptsetup:${{ inputs.release_tag }}" \
             PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ inputs.release_tag }}" \
+            PKG_LVM2="ghcr.io/${{ github.actor }}/talos/lvm2:${{ inputs.release_tag }}" \
             USERNAME="${{ github.actor }}/talos" \
             TAG="${{ inputs.release_tag }}" \
             PUSH="true"
