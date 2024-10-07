@@ -211,11 +211,7 @@ jobs:
               --extra-kernel-arg lsm=landlock,lockdown,yama,apparmor,bpf \
               --extra-kernel-arg lsm.debug \
               --extra-kernel-arg amd_pstate=active \
-              --extra-kernel-arg console=tty0 \
-              --extra-kernel-arg talos.network.interface.ignore=eth0 \
-              --extra-kernel-arg talos.network.interface.ignore=enp66s0f0 \
-              --extra-kernel-arg talos.network.interface.ignore=eth1 \
-              --extra-kernel-arg talos.network.interface.ignore=enp66s0f1
+              --extra-kernel-arg console=tty0
           docker run --rm --privileged -v ./secureboot:/secureboot:ro -v ./_out:/out -v /dev:/dev \
             ghcr.io/${{ github.actor }}/talos/imager:${{ inputs.release_tag }} \
               secureboot-iso \
@@ -223,12 +219,7 @@ jobs:
               --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.release_tag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
-              --extra-kernel-arg console=tty0 \
-              --extra-kernel-arg net.ifnames=0 \
-              --extra-kernel-arg talos.network.interface.ignore=eth0 \
-              --extra-kernel-arg talos.network.interface.ignore=eth1 \
-              --extra-kernel-arg bond=bond0:eth2,eth3:mode=802.3ad:1500 \
-              --extra-kernel-arg ip=bond0:dhcp
+              --extra-kernel-arg console=tty0
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3.3.0
