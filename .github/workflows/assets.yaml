@@ -235,6 +235,12 @@ jobs:
             _out/installer-amd64-secureboot.tar \
             ghcr.io/${{ github.actor }}/talos/secureboot-installer:${{ inputs.release_tag }}
 
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: _out/metal-amd64-secureboot.iso
+
   build-nvidia-driver-container:
     needs: [set-rel, build-pkgs]
     if: ${{ !failure() && inputs.build_nvidia_driver_container }}
