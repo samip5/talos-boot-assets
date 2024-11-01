@@ -96,8 +96,9 @@ jobs:
         run: |
           make ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg \
             PLATFORM=linux/amd64 \
-            USERNAME="${{ github.actor }}/talos" \
             TAG="${{ inputs.release_tag }}" \
+            USERNAME="${{ github.actor }}" \
+            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
             PUSH="true"
 
   build-extensions:
@@ -129,9 +130,10 @@ jobs:
           make glibc nvidia-driver-production zfs \
             PLATFORM=linux/amd64 \
             PKGS="${{ inputs.release_tag }}" \
-            PKGS_PREFIX="ghcr.io/${{ github.actor }}/talos" \
-            USERNAME="${{ github.actor }}/talos" \
+            PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
             TAG="${{ inputs.release_tag }}" \
+            USERNAME="${{ github.actor }}" \
+            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
             PUSH="true"
 
   build-talos:
@@ -179,17 +181,17 @@ jobs:
           make docker-imager docker-installer docker-talosctl  \
             INSTALLER_ARCH="amd64" \
             PLATFORM="linux/amd64" \
-            PKG_KERNEL="ghcr.io/${{ github.actor }}/talos/kernel:${{ inputs.release_tag }}" \
-            USERNAME="${{ github.actor }}" \
+            PKG_KERNEL="ghcr.io/${{ github.actor }}/siderolabs/kernel:${{ inputs.release_tag }}" \
             TAG="${{ inputs.release_tag }}" \
-            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/talos" \
+            USERNAME="${{ github.actor }}" \
+            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
             DEST=_out
           for image in _out/*.tar; do
             crane push \
               --platform linux/amd64 \
               --image-refs _out/refs \
               $image \
-              "ghcr.io/${{ github.actor }}/talos/$(basename $image .tar):${{ inputs.release_tag }}"
+              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):${{ inputs.release_tag }}"
             cosign sign --yes "$(cat _out/refs)"
           done
 
@@ -235,18 +237,18 @@ jobs:
           echo "${UKI_SIGNING_CERT}" > ./_out/uki-signing-cert.pem
           echo "${UKI_SIGNING_KEY}" > ./_out/uki-signing-key.pem
           docker run --rm -v ./_out:/_out \
-            ghcr.io/${{ github.actor }}/talos/talosctl:${{ inputs.release_tag }} \
+            ghcr.io/${{ github.actor }}/siderolabs/talosctl:${{ inputs.release_tag }} \
               gen secureboot database --include-well-known-uefi-certs
           mv _out secureboot
           mkdir _out
           docker run --rm -v ./secureboot:/secureboot:ro -v ./_out:/out \
-            ghcr.io/${{ github.actor }}/talos/imager:${{ inputs.release_tag }} \
+            ghcr.io/${{ github.actor }}/siderolabs/imager:${{ inputs.release_tag }} \
               secureboot-installer \
               --arch amd64 \
-              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.release_tag }} \
-              --system-extension-image ghcr.io/jfroy/talos/glibc:${{ env.GLIBC_VERSION }} \
-              --system-extension-image ghcr.io/jfroy/talos/nvidia-driver-production:${{ env.NVIDIA_DRIVER_VERSION }}-${{ inputs.release_tag }} \
-              --system-extension-image ghcr.io/jfroy/talos/zfs:${{ env.ZFS_VERSION }}-${{ inputs.release_tag }} \
+              --base-installer-image ghcr.io/${{ github.actor }}/siderolabs/installer:${{ inputs.release_tag }} \
+              --system-extension-image ghcr.io/jfroy/siderolabs/glibc:${{ env.GLIBC_VERSION }} \
+              --system-extension-image ghcr.io/jfroy/siderolabs/nvidia-driver-production:${{ env.NVIDIA_DRIVER_VERSION }}-${{ inputs.release_tag }} \
+              --system-extension-image ghcr.io/jfroy/siderolabs/zfs:${{ env.ZFS_VERSION }}-${{ inputs.release_tag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/iscsi-tools:${{ env.ISCSI_TOOLS_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
@@ -256,10 +258,10 @@ jobs:
               --extra-kernel-arg amd_pstate=active \
               --extra-kernel-arg spec_rstack_overflow=microcode
           docker run --rm --privileged -v ./secureboot:/secureboot:ro -v ./_out:/out -v /dev:/dev \
-            ghcr.io/${{ github.actor }}/talos/imager:${{ inputs.release_tag }} \
+            ghcr.io/${{ github.actor }}/siderolabs/imager:${{ inputs.release_tag }} \
               secureboot-iso \
               --arch amd64 \
-              --base-installer-image ghcr.io/${{ github.actor }}/talos/installer:${{ inputs.release_tag }} \
+              --base-installer-image ghcr.io/${{ github.actor }}/siderolabs/installer:${{ inputs.release_tag }} \
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
               --extra-kernel-arg console=tty0
@@ -267,7 +269,7 @@ jobs:
             --platform linux/amd64 \
             --image-refs _out/refs \
             _out/installer-amd64-secureboot.tar \
-            ghcr.io/${{ github.actor }}/talos/secureboot-installer:${{ inputs.release_tag }}
+            ghcr.io/${{ github.actor }}/siderolabs/secureboot-installer:${{ inputs.release_tag }}
           cosign sign --yes "$(cat _out/refs)"
 
       - name: Create release
@@ -308,6 +310,6 @@ jobs:
             --build-arg DRIVER_VERSION=${{ env.NVIDIA_DRIVER_VERSION }} \
             --build-arg KERNEL_VERSION=${{ env.KERNEL_VERSION }} \
             --build-arg TALOS_VERSION=${{ inputs.release_tag }} \
-            -t ghcr.io/${{ github.actor }}/talos/nvidia-driver:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.KERNEL_VERSION }}-talos${{ inputs.release_tag }} \
+            -t ghcr.io/${{ github.actor }}/siderolabs/nvidia-driver:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.KERNEL_VERSION }}-talos${{ inputs.release_tag }} \
             --push \
             .
