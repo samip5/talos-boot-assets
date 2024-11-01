@@ -94,12 +94,24 @@ jobs:
 
       - name: Build
         run: |
-          make ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg \
+          mkdir _out
+          make docker-ca-certificates docker-base docker-kernel docker-nvidia-open-gpu-kernel-modules-production-pkg docker-zfs-pkg \
             PLATFORM=linux/amd64 \
             TAG="${{ inputs.release_tag }}" \
             USERNAME="${{ github.actor }}" \
             REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
-            PUSH="true"
+            DEST=_out
+
+      - name: Push and sign
+        run: |
+          for image in _out/*.tar; do
+            crane push \
+              --platform linux/amd64 \
+              --image-refs _out/refs \
+              $image \
+              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):${{ inputs.release_tag }}"
+            cosign sign --yes "$(cat _out/refs)"
+          done
 
   build-extensions:
     needs: [set-rel, build-pkgs]
@@ -115,6 +127,15 @@ jobs:
           ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install SLSA verifier
+        uses: slsa-framework/slsa-verifier/actions/installer@v2.6.0
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -127,14 +148,26 @@ jobs:
 
       - name: Build
         run: |
-          make glibc nvidia-driver-production zfs \
+          mkdir _out
+          make docker-glibc docker-nvidia-driver-production docker-zfs \
             PLATFORM=linux/amd64 \
             PKGS="${{ inputs.release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
             TAG="${{ inputs.release_tag }}" \
             USERNAME="${{ github.actor }}" \
             REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
-            PUSH="true"
+            DEST=_out
+
+      - name: Push and sign
+        run: |
+          for image in _out/*.tar; do
+            crane push \
+              --platform linux/amd64 \
+              --image-refs _out/refs \
+              $image \
+              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):${{ inputs.release_tag }}"
+            cosign sign --yes "$(cat _out/refs)"
+          done
 
   build-talos:
     needs: [set-rel, build-pkgs]
@@ -186,6 +219,9 @@ jobs:
             USERNAME="${{ github.actor }}" \
             REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
             DEST=_out
+
+      - name: Push and sign
+        run: |
           for image in _out/*.tar; do
             crane push \
               --platform linux/amd64 \
@@ -265,6 +301,9 @@ jobs:
               --system-extension-image ghcr.io/siderolabs/amd-ucode:${{ env.AMD_UCODE_VERSION }} \
               --system-extension-image ghcr.io/siderolabs/util-linux-tools:${{ env.UTIL_LINUX_TOOLS_VERSION }} \
               --extra-kernel-arg console=tty0
+
+      - name: Push and sign
+        run: |
           crane push \
             --platform linux/amd64 \
             --image-refs _out/refs \
