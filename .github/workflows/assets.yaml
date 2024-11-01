@@ -69,6 +69,15 @@ jobs:
           ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install SLSA verifier
+        uses: slsa-framework/slsa-verifier/actions/installer@v2.6.0
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
