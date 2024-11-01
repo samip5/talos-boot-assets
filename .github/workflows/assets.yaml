@@ -187,7 +187,7 @@ jobs:
               --image-refs _out/refs \
               "$dest" "$image"
             cosign sign --yes "$(cat _out/refs)"
-            echo "$(cat _out/refs)" >> internal/extensions/image-digests
+            echo "$image@$(crane digest $(cat refs))" >> internal/extensions/image-digests
             cat "$dest" | crane export - - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
           done
 
