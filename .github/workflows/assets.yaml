@@ -168,6 +168,7 @@ jobs:
       - name: Build
         run: |
           make _out/bldr
+          crane export ghcr.io/siderolabs/extensions:${{ inputs.release_tag }} | tar x -C internal/extensions/
           for target in glibc nvidia-driver-production zfs; do
             tag="$(_out/bldr eval --target $target --build-arg TAG=${{ inputs.release_tag }} '{{.VERSION}}')"
             dest="_out/$target.tar"
@@ -186,7 +187,7 @@ jobs:
               --image-refs _out/refs \
               "$dest" "$image"
             cosign sign --yes "$(cat _out/refs)"
-            cat _out/refs >> internal/extensions/image-digests
+            echo "$(cat _out/refs)" >> internal/extensions/image-digests
             cat "$dest" | crane export - - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
           done
 
