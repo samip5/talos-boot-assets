@@ -308,7 +308,7 @@ jobs:
         run: |
           mkdir -p _out
           image=_out/overlays.tar
-          crane pull --format tarball ghcr.io/siderolabs/overlays::${{ inputs.release_tag }} _out/overlays.tar 
+          crane pull --format tarball ghcr.io/siderolabs/overlays:${{ inputs.release_tag }} _out/overlays.tar 
           crane push \
               --platform linux/amd64 \
               --image-refs _out/refs \
