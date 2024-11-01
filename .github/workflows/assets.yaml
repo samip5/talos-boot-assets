@@ -169,14 +169,36 @@ jobs:
 
       - name: Push and sign
         run: |
+          crane export ghcr.io/siderolabs/extensions:${{ inputs.release_tag }} | tar x -C internal/extensions/
           for image in _out/*.tar; do
+            tag=$(_out/bldr eval --target nvidia-driver-production --build-arg TAG=${{ inputs.release_tag }} '{{.VERSION}}')
             crane push \
               --platform linux/amd64 \
               --image-refs _out/refs \
               $image \
-              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):${{ inputs.release_tag }}"
+              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):$tag"
             cosign sign --yes "$(cat _out/refs)"
+            cat _out/refs >> internal/extensions/image-digests
+            crane export $image - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
           done
+
+      - name: Push and sign manifest image
+        run: |
+          make docker-extensions \
+            PLATFORM=linux/amd64 \
+            PKGS="${{ inputs.release_tag }}" \
+            PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
+            TAG="${{ inputs.release_tag }}" \
+            USERNAME="${{ github.actor }}" \
+            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
+            DEST=_out
+          image=_out/extensions.tar
+          crane push \
+              --platform linux/amd64 \
+              --image-refs _out/refs \
+              $image \
+              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):${{ inputs.release_tag }}"
+          cosign sign --yes "$(cat _out/refs)"
 
   build-talos:
     needs: [set-rel, build-pkgs]
