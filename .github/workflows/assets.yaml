@@ -104,21 +104,21 @@ jobs:
       - name: Build
         run: |
           mkdir _out
-          make docker-ca-certificates docker-base docker-kernel docker-nvidia-open-gpu-kernel-modules-production-pkg docker-zfs-pkg \
-            PLATFORM=linux/amd64 \
-            TAG="${{ inputs.release_tag }}" \
-            USERNAME="${{ github.actor }}" \
-            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
-            DEST=_out
-
-      - name: Push and sign
-        run: |
-          for image in _out/*.tar; do
+          for target in ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg; do
+            tag="${{ inputs.release_tag }}"
+            dest="_out/$target.tar"
+            repo="ghcr.io/${{ github.actor }}/siderolabs"
+            image="$repo/$target:$tag"
+            make docker-$target \
+              PLATFORM=linux/amd64 \
+              TAG="${{ inputs.release_tag }}" \
+              USERNAME="${{ github.actor }}" \
+              REGISTRY_AND_USERNAME="$repo" \
+              TARGET_ARGS="--output type=docker,dest=$dest,name=$image"
             crane push \
               --platform linux/amd64 \
               --image-refs _out/refs \
-              $image \
-              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):${{ inputs.release_tag }}"
+              "$dest" "$image"
             cosign sign --yes "$(cat _out/refs)"
           done
 
@@ -158,31 +158,29 @@ jobs:
       - name: Build
         run: |
           mkdir _out
-          make docker-glibc docker-nvidia-driver-production docker-zfs \
-            PLATFORM=linux/amd64 \
-            PKGS="${{ inputs.release_tag }}" \
-            PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
-            TAG="${{ inputs.release_tag }}" \
-            USERNAME="${{ github.actor }}" \
-            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
-            DEST=_out
-
-      - name: Push and sign
-        run: |
-          crane export ghcr.io/siderolabs/extensions:${{ inputs.release_tag }} | tar x -C internal/extensions/
-          for image in _out/*.tar; do
-            tag=$(_out/bldr eval --target nvidia-driver-production --build-arg TAG=${{ inputs.release_tag }} '{{.VERSION}}')
+          for target in glibc nvidia-driver-production zfs; do
+            tag="$(_out/bldr eval --target $target --build-arg TAG=${{ inputs.release_tag }} '{{.VERSION}}')"
+            dest="_out/$target.tar"
+            repo="ghcr.io/${{ github.actor }}/siderolabs"
+            image="$repo/$target:$tag"
+            make docker-$target \
+              PLATFORM=linux/amd64 \
+              PKGS="${{ inputs.release_tag }}" \
+              PKGS_PREFIX="$repo" \
+              TAG="${{ inputs.release_tag }}" \
+              USERNAME="${{ github.actor }}" \
+              REGISTRY_AND_USERNAME="$repo" \
+              TARGET_ARGS="--output type=docker,dest=$dest,name=$image"
             crane push \
               --platform linux/amd64 \
               --image-refs _out/refs \
-              $image \
-              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):$tag"
+              "$dest" "$image"
             cosign sign --yes "$(cat _out/refs)"
             cat _out/refs >> internal/extensions/image-digests
-            crane export $image - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
+            cat "$dest" | crane export - - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
           done
 
-      - name: Push and sign manifest image
+      - name: Build manifest image
         run: |
           make docker-extensions \
             PLATFORM=linux/amd64 \
