@@ -74,9 +74,6 @@ jobs:
           ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install SLSA verifier
-        uses: slsa-framework/slsa-verifier/actions/installer@v2.6.0
-
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.7.0
 
@@ -145,9 +142,6 @@ jobs:
           repository: jfroy/siderolabs-extensions
           ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install SLSA verifier
-        uses: slsa-framework/slsa-verifier/actions/installer@v2.6.0
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.7.0
@@ -232,9 +226,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Install SLSA verifier
-        uses: slsa-framework/slsa-verifier/actions/installer@v2.6.0
-
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.7.0
 
@@ -286,9 +277,6 @@ jobs:
       packages: write
 
     steps:
-      - name: Install SLSA verifier
-        uses: slsa-framework/slsa-verifier/actions/installer@v2.6.0
-
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.7.0
 
