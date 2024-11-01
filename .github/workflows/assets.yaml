@@ -293,13 +293,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Push and sign overlays manifest image
+        run: |
+          mkdir -p _out
+          image=_out/overlays.tar
+          crane pull --format tarball ghcr.io/siderolabs/overlays::${{ inputs.release_tag }} _out/overlays.tar 
+          crane push \
+              --platform linux/amd64 \
+              --image-refs _out/refs \
+              $image \
+              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):${{ inputs.release_tag }}"
+          cosign sign --yes "$(cat _out/refs)"
+
       - name: Build
         env:
           PCR_SIGNING_KEY: ${{ secrets.PCR_SIGNING_KEY }}
           UKI_SIGNING_CERT: ${{ secrets.UKI_SIGNING_CERT }}
           UKI_SIGNING_KEY: ${{ secrets.UKI_SIGNING_KEY }}
         run: |
-          mkdir _out
+          mkdir -p _out
           echo "${PCR_SIGNING_KEY}" > ./_out/pcr-signing-key.pem
           echo "${UKI_SIGNING_CERT}" > ./_out/uki-signing-cert.pem
           echo "${UKI_SIGNING_KEY}" > ./_out/uki-signing-key.pem
