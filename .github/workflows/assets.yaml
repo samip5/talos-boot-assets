@@ -220,8 +220,8 @@ jobs:
           mkdir -p _out
           for target in imager installer; do
             make $target \
-              PLATFORM=linux/amd64 \
-              INSTALLER_ARCH="targetarch" \
+              PLATFORM="linux/amd64,linux/arm64" \
+              INSTALLER_ARCH="amd64" \
               PKG_KERNEL="$repo/kernel:${{ inputs.release_tag }}" \
               USERNAME="${{ github.actor }}" \
               REGISTRY_AND_USERNAME="$repo" \
@@ -236,7 +236,7 @@ jobs:
           repo="ghcr.io/${{ github.actor }}/siderolabs"
           mkdir -p _out
           make talosctl-image \
-            PLATFORM=linux/amd64 \
+            PLATFORM="linux/amd64,linux/arm64" \
             PKG_KERNEL="$repo/kernel:${{ inputs.release_tag }}" \
             USERNAME="${{ github.actor }}" \
             REGISTRY_AND_USERNAME="$repo" \
