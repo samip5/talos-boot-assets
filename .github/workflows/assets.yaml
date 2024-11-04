@@ -110,7 +110,7 @@ jobs:
               REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
               TAG="${{ inputs.release_tag }}" \
               PUSH="true" \
-              CI_ARGS="--metadata-file _out/meta"
+              CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
             cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
           done
 
@@ -161,7 +161,7 @@ jobs:
               REGISTRY="ghcr.io/${{ github.actor }}" \
               TAG="${{ inputs.release_tag }}" \
               PUSH="true" \
-              CI_ARGS="--metadata-file _out/meta"
+              CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
             image="$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
             cosign sign --yes --recursive "$image"
             echo "$image" >> internal/extensions/image-digests
@@ -178,7 +178,7 @@ jobs:
             REGISTRY="ghcr.io/${{ github.actor }}" \
             TAG="${{ inputs.release_tag }}" \
             TARGET_ARGS="--tag=ghcr.io/${{ github.actor }}/siderolabs/extensions:${{ inputs.release_tag }} --push=true" \
-            CI_ARGS="--metadata-file _out/meta"
+            CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
           cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
 
   build-talos:
@@ -226,7 +226,7 @@ jobs:
               REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
               TAG="${{ inputs.release_tag }}" \
               PUSH="true" \
-              CI_ARGS="--metadata-file _out/meta"
+              CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
             cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
           done
 
@@ -239,7 +239,7 @@ jobs:
             REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
             TAG="${{ inputs.release_tag }}" \
             PUSH="true" \
-            CI_ARGS="--metadata-file _out/meta"
+            CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
           cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
 
   build-nvidia-driver-container:
