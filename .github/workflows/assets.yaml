@@ -77,9 +77,6 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.7.0
 
-      - name: Install crane
-        uses: imjasonh/setup-crane@v0.4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
@@ -107,21 +104,14 @@ jobs:
         run: |
           mkdir -p _out
           for target in ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg; do
-            tag="${{ inputs.release_tag }}"
-            dest="_out/$target.tar"
-            repo="ghcr.io/${{ github.actor }}/siderolabs"
-            image="$repo/$target:$tag"
-            make docker-$target \
+            make $target \
               PLATFORM=linux/amd64 \
-              TAG="${{ inputs.release_tag }}" \
               USERNAME="${{ github.actor }}" \
-              REGISTRY_AND_USERNAME="$repo" \
-              TARGET_ARGS="--output type=docker,dest=$dest,name=$image"
-            crane push \
-              --platform linux/amd64 \
-              --image-refs _out/refs \
-              "$dest" "$image"
-            cosign sign --yes "$(cat _out/refs)"
+              REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
+              TAG="${{ inputs.release_tag }}" \
+              PUSH="true" \
+              CI_ARGS="--metadata-file _out/meta"
+            cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
           done
 
   build-extensions:
@@ -164,48 +154,32 @@ jobs:
           make _out/bldr
           crane export ghcr.io/siderolabs/extensions:${{ inputs.release_tag }} | tar x -C internal/extensions/
           for target in glibc nvidia-driver-production zfs; do
-            tag="$(_out/bldr eval --target $target --build-arg TAG=${{ inputs.release_tag }} '{{.VERSION}}')"
-            dest="_out/$target.tar"
-            repo="ghcr.io/${{ github.actor }}/siderolabs"
-            image="$repo/$target:$tag"
-            make docker-$target \
+            make $target \
               PLATFORM=linux/amd64 \
               PKGS="${{ inputs.release_tag }}" \
-              PKGS_PREFIX="$repo" \
+              PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
+              REGISTRY="ghcr.io/${{ github.actor }}" \
               TAG="${{ inputs.release_tag }}" \
-              USERNAME="${{ github.actor }}" \
-              REGISTRY_AND_USERNAME="$repo" \
-              TARGET_ARGS="--output type=docker,dest=$dest,name=$image"
-            crane push \
-              --platform linux/amd64 \
-              --image-refs _out/refs \
-              "$dest" "$image"
-            cosign sign --yes "$(cat _out/refs)"
-            image_d="$image@$(crane digest $(cat _out/refs))"
-            echo "$image_d" >> internal/extensions/image-digests
-            cat "$dest" | crane export - - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$image_d\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
+              PUSH="true" \
+              CI_ARGS="--metadata-file _out/meta"
+            image="$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
+            cosign sign --yes --recursive "$image"
+            echo "$image" >> internal/extensions/image-digests
+            crane export "$image" - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
           done
 
       - name: Build manifest image
         run: |
-          target=extensions
-          tag="${{ inputs.release_tag }}"
-          dest="_out/$target.tar"
-          repo="ghcr.io/${{ github.actor }}/siderolabs"
-          image="$repo/$target:$tag"
-          make docker-$target \
+          mkdir -p _out
+          make extensions \
             PLATFORM=linux/amd64 \
             PKGS="${{ inputs.release_tag }}" \
-            PKGS_PREFIX="$repo" \
+            PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
+            REGISTRY="ghcr.io/${{ github.actor }}" \
             TAG="${{ inputs.release_tag }}" \
-            USERNAME="${{ github.actor }}" \
-            REGISTRY_AND_USERNAME="$repo" \
-            TARGET_ARGS="--output type=docker,dest=$dest,name=$image"
-          crane push \
-            --platform linux/amd64 \
-            --image-refs _out/refs \
-            "$dest" "$image"
-          cosign sign --yes "$(cat _out/refs)"
+            PUSH="true" \
+            CI_ARGS="--metadata-file _out/meta"
+          cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
 
   build-talos:
     needs: [set-rel, build-pkgs]
@@ -230,9 +204,6 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.7.0
 
-      - name: Install crane
-        uses: imjasonh/setup-crane@v0.4
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -245,26 +216,34 @@ jobs:
 
       - name: Build
         run: |
-          mkdir _out
-          make docker-imager docker-installer docker-talosctl  \
-            INSTALLER_ARCH="amd64" \
-            PLATFORM="linux/amd64" \
-            PKG_KERNEL="ghcr.io/${{ github.actor }}/siderolabs/kernel:${{ inputs.release_tag }}" \
-            TAG="${{ inputs.release_tag }}" \
-            USERNAME="${{ github.actor }}" \
-            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
-            DEST=_out
-
-      - name: Push and sign
-        run: |
-          for image in _out/*.tar; do
-            crane push \
-              --platform linux/amd64 \
-              --image-refs _out/refs \
-              $image \
-              "ghcr.io/${{ github.actor }}/siderolabs/$(basename $image .tar):${{ inputs.release_tag }}"
-            cosign sign --yes "$(cat _out/refs)"
+          repo="ghcr.io/${{ github.actor }}/siderolabs"
+          mkdir -p _out
+          for target in imager installer; do
+            make $target \
+              PLATFORM=linux/amd64 \
+              INSTALLER_ARCH="targetarch" \
+              PKG_KERNEL="$repo/kernel:${{ inputs.release_tag }}" \
+              USERNAME="${{ github.actor }}" \
+              REGISTRY_AND_USERNAME="$repo" \
+              TAG="${{ inputs.release_tag }}" \
+              PUSH="true" \
+              CI_ARGS="--metadata-file _out/meta"
+            cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
           done
+
+      - name: Build talosctl image
+        run: |
+          repo="ghcr.io/${{ github.actor }}/siderolabs"
+          mkdir -p _out
+          make talosctl-image \
+            PLATFORM=linux/amd64 \
+            PKG_KERNEL="$repo/kernel:${{ inputs.release_tag }}" \
+            USERNAME="${{ github.actor }}" \
+            REGISTRY_AND_USERNAME="$repo" \
+            TAG="${{ inputs.release_tag }}" \
+            PUSH="true" \
+            CI_ARGS="--metadata-file _out/meta"
+          cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
 
   build-release:
     needs: [set-rel, build-talos, build-extensions]
@@ -341,7 +320,7 @@ jobs:
             --image-refs _out/refs \
             _out/installer-amd64-secureboot.tar \
             ghcr.io/${{ github.actor }}/siderolabs/secureboot-installer:${{ inputs.release_tag }}
-          cosign sign --yes "$(cat _out/refs)"
+          cosign sign --yes --recursive "$(cat _out/refs)"
 
       - name: Create release
         uses: softprops/action-gh-release@v2
