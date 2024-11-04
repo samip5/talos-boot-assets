@@ -171,13 +171,13 @@ jobs:
       - name: Build manifest image
         run: |
           mkdir -p _out
-          make extensions \
+          make docker-extensions \
             PLATFORM=linux/amd64 \
             PKGS="${{ inputs.release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
             REGISTRY="ghcr.io/${{ github.actor }}" \
             TAG="${{ inputs.release_tag }}" \
-            PUSH="true" \
+            TARGET_ARGS="--tag=ghcr.io/${{ github.actor }}/siderolabs/extensions:${{ inputs.release_tag }} --push=true" \
             CI_ARGS="--metadata-file _out/meta"
           cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
 
@@ -216,15 +216,14 @@ jobs:
 
       - name: Build
         run: |
-          repo="ghcr.io/${{ github.actor }}/siderolabs"
           mkdir -p _out
           for target in imager installer; do
             make $target \
               PLATFORM="linux/amd64,linux/arm64" \
               INSTALLER_ARCH="amd64" \
-              PKG_KERNEL="$repo/kernel:${{ inputs.release_tag }}" \
+              PKG_KERNEL="ghcr.io/${{ github.actor }}/siderolabs/kernel:${{ inputs.release_tag }}" \
               USERNAME="${{ github.actor }}" \
-              REGISTRY_AND_USERNAME="$repo" \
+              REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
               TAG="${{ inputs.release_tag }}" \
               PUSH="true" \
               CI_ARGS="--metadata-file _out/meta"
@@ -233,12 +232,11 @@ jobs:
 
       - name: Build talosctl image
         run: |
-          repo="ghcr.io/${{ github.actor }}/siderolabs"
           mkdir -p _out
           make talosctl-image \
             PLATFORM="linux/amd64,linux/arm64" \
             USERNAME="${{ github.actor }}" \
-            REGISTRY_AND_USERNAME="$repo" \
+            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
             TAG="${{ inputs.release_tag }}" \
             PUSH="true" \
             CI_ARGS="--metadata-file _out/meta"
