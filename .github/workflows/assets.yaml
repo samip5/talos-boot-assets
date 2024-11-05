@@ -32,13 +32,8 @@ concurrency:
   group: ${{ github.actor }}-build
 
 env:
-  AMD_UCODE_VERSION: "20240811"
-  GLIBC_VERSION: "2.40"
   KERNEL_VERSION: "6.10.6-talos"
-  ISCSI_TOOLS_VERSION: "v0.1.5"
   NVIDIA_DRIVER_VERSION: "550.90.07"
-  UTIL_LINUX_TOOLS_VERSION: "2.40.2"
-  ZFS_VERSION: "2.2.6"
 
 jobs:
   set-rel:
