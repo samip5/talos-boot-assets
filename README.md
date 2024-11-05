@@ -35,6 +35,10 @@ Support for [NVIDIA GPU Operator](https://docs.nvidia.com/datacenter/cloud-nativ
 
 The workflow builds the latest production NVIDIA open kernel kernel modules as part of the pkgs build (to use the ephemeral kernel module signing key). The workflow then builds a custom NVIDIA driver container to bundle the kernel modules with the userspace components. Driver containers are managed by the [NVIDIA gpu-operator](https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/index.html). This new custom extension also depends on a new glibc extension which has now been [upstreamed](https://github.com/siderolabs/extensions/pull/473).
 
+### ZFS extension
+
+My ZFS extension is largely similar to the upstream version, but it includes a new tool (`zfs-service`) that handles importing and unmounting all zfs pools following the Talos service lifecycle, and supports encrypted datasets by passing the `-l` flag to `zpool-import` (see [zpool-import.8](https://openzfs.github.io/openzfs-docs/man/master/8/zpool-import.8.html)).
+
 ## Running Image Factory
 
 Image Factory is a service by SideroLabs that consumes Talos boot assets and produces bootable media and installer container images based on a schema that essentially specifies the extensions to include and kernel boot arguments. The official instance is at <https://factory.talos.dev>.
