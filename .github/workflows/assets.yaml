@@ -7,6 +7,9 @@ on:
       release_tag:
         description: Container image tag for the release
         required: true
+      siderolabs_tag:
+        description: Upstream release tag for extensions manifest
+        required: true
       build_pkgs:
         description: Build pkgs
         type: boolean
@@ -147,7 +150,7 @@ jobs:
       - name: Build
         run: |
           make _out/bldr
-          crane export ghcr.io/siderolabs/extensions:${{ inputs.release_tag }} | tar x -C internal/extensions/
+          crane export ghcr.io/siderolabs/extensions:${{ inputs.siderolabs_tag }} | tar x -C internal/extensions/
           for target in glibc nvidia-driver-production zfs; do
             make $target \
               PLATFORM=linux/amd64 \
