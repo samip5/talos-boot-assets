@@ -34,30 +34,10 @@ on:
 concurrency:
   group: ${{ github.actor }}-build
 
-env:
-  KERNEL_VERSION: "6.10.6-talos"
-  NVIDIA_DRIVER_VERSION: "550.90.07"
-
 jobs:
-  set-rel:
-    name: Set release branch
+  build:
+    name: Build
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Set release branch
-        id: set
-        run: |
-          release_branch=release-$(grep -Eo '[0-9]\.[0-9]+' <<< ${{ inputs.release_tag }})
-          echo "release_branch=$release_branch" >> $GITHUB_OUTPUT
-
-    outputs:
-      release_branch: ${{ steps.set.outputs.release_branch }}
-
-  build-pkgs:
-    needs: [set-rel]
-    if: ${{ !failure() && !cancelled() && inputs.build_pkgs }}
-    name: Build packages
-    runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
 
     permissions:
       contents: read
@@ -65,45 +45,145 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          repository: jfroy/siderolabs-pkgs
-          ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.7.0
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          buildkitd-config-inline: |
-            [worker.oci]
-              gc = true
-              gckeepstorage = 50000
+      - name: Setup terraform
+        uses: hashicorp/setup-terraform@v3
 
-              [[worker.oci.gcpolicy]]
-                keepBytes = 10737418240
-                keepDuration = 604800
-                filters = [ "type==source.local", "type==exec.cachemount", "type==source.git.checkout"]
-              [[worker.oci.gcpolicy]]
-                all = true
-                keepBytes = 53687091200
+      - name: Set release branch
+        id: set-rel
+        run: |
+          release_branch=release-$(grep -Eo '[0-9]\.[0-9]+' <<< ${{ inputs.release_tag }})
+          echo "release_branch=$release_branch" >> $GITHUB_OUTPUT
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.3.0
+      - name: Login ghcr.io
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build
+      - name: Setup tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:gha-talos-boot-assets
+          version: 1.78.0
+
+      - name: Generate tailscale keys
+        id: ts-keys
+        run: |
+          ts_access_token=$(curl --silent \
+            -d "client_id=${{ secrets.TS_OAUTH_CLIENT_ID }}" \
+            -d "client_secret=${{ secrets.TS_OAUTH_SECRET }}" \
+            "https://api.tailscale.com/api/v2/oauth/token" | jq -r '.access_token')
+          if [ "$ts_access_token" = "null" ]; then
+            echo "Tailscale API returned null access token"
+            exit 1
+          fi
+          echo "::add-mask::$ts_access_token"
+
+          ts_auth_key_amd64=$(curl --silent --request POST \
+            --url 'https://api.tailscale.com/api/v2/tailnet/-/keys?all=true' \
+            --header "Authorization: Bearer $ts_access_token" \
+            --header 'Content-Type: application/json' \
+            --data '{
+            "capabilities": {
+              "devices": {
+                "create": {
+                  "reusable": false,
+                  "ephemeral": true,
+                  "preauthorized": true,
+                  "tags": ["tag:gha-talos-boot-assets"]
+                }
+              }
+            },
+            "expirySeconds": 1000
+          }' | jq -r '.key')
+          if [ "$ts_auth_key_amd64" = "null" ]; then
+            echo "Tailscale API returned null auth key for amd64"
+            exit 1
+          fi
+          echo "::add-mask::$ts_auth_key_amd64"
+
+          ts_auth_key_arm64=$(curl --silent --request POST \
+            --url 'https://api.tailscale.com/api/v2/tailnet/-/keys?all=true' \
+            --header "Authorization: Bearer $ts_access_token" \
+            --header 'Content-Type: application/json' \
+            --data '{
+            "capabilities": {
+              "devices": {
+                "create": {
+                  "reusable": false,
+                  "ephemeral": true,
+                  "preauthorized": true,
+                  "tags": ["tag:gha-talos-boot-assets"]
+                }
+              }
+            },
+            "expirySeconds": 1000
+          }' | jq -r '.key')
+          if [ "$ts_auth_key_arm64" = "null" ]; then
+            echo "Tailscale API returned null auth key for arm64"
+            exit 1
+          fi
+          echo "::add-mask::$ts_auth_key_arm64"
+
+          echo "ts_auth_key_amd64=$ts_auth_key_amd64" >> $GITHUB_OUTPUT
+          echo "ts_auth_key_arm64=$ts_auth_key_arm64" >> $GITHUB_OUTPUT
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::992382661722:role/talos-boot-assets-gha-terraform-buildkit
+          aws-region: us-west-2
+
+      - name: Checkout workflow
+        uses: actions/checkout@v4
+
+      - name: Terraform apply
+        id: terraform-apply
+        run: |
+          terraform init
+          terraform apply -auto-approve \
+            -var "ts_auth_key_amd64=${{ steps.ts-keys.outputs.ts_auth_key_amd64 }}" \
+            -var "ts_auth_key_arm64=${{ steps.ts-keys.outputs.ts_auth_key_arm64 }}"
+          echo "instance_amd64_id=$(terraform output --raw instance_amd64_id)" >> $GITHUB_OUTPUT
+          echo "instance_arm64_id=$(terraform output --raw instance_arm64_id)" >> $GITHUB_OUTPUT
+
+      - name: Setup buildkit
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: remote
+          endpoint: tcp://${{ steps.terraform-apply.outputs.instance_amd64_id }}:9999
+          platforms: linux/amd64
+          append: |
+            - endpoint: tcp://${{ steps.terraform-apply.outputs.instance_arm64_id }}:9999
+              platforms: linux/arm64
+
+      - name: Checkout pkgs
+        if: ${{ !failure() && !cancelled() && inputs.build_pkgs }}
+        uses: actions/checkout@v4
+        with:
+          path: pkgs
+          repository: jfroy/siderolabs-pkgs
+          ref: ${{ steps.set-rel.outputs.release_branch }}-jfroy
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build pkgs
+        id: build-pkgs
+        if: ${{ !failure() && !cancelled() && inputs.build_pkgs }}
+        working-directory: ./pkgs
         run: |
           mkdir -p _out
           for target in ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg; do
             make $target \
-              PLATFORM=linux/amd64 \
+              PLATFORM="linux/amd64,linux/arm64" \
               USERNAME="${{ github.actor }}" \
               REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
               TAG="${{ inputs.release_tag }}" \
@@ -112,48 +192,24 @@ jobs:
             cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
           done
 
-  build-extensions:
-    needs: [set-rel, build-pkgs]
-    if: ${{ !failure() && !cancelled() && (inputs.build_extensions || needs.build-pkgs.result == 'success') }}
-    name: Build extensions
-    runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
-
-    permissions:
-      contents: read
-      id-token: write
-      packages: write
-
-    steps:
-      - name: Checkout
+      - name: Checkout extensions
+        if: ${{ !failure() && !cancelled() && (inputs.build_extensions || steps.build-pkgs.conclusion == 'success') }}
         uses: actions/checkout@v4
         with:
+          path: extensions
           repository: jfroy/siderolabs-extensions
-          ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
+          ref: ${{ steps.set-rel.outputs.release_branch }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.7.0
-
-      - name: Install crane
-        uses: imjasonh/setup-crane@v0.4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.3.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build
+      - name: Build extensions
+        if: ${{ !failure() && !cancelled() && (inputs.build_extensions || steps.build-pkgs.conclusion == 'success') }}
+        working-directory: ./extensions
         run: |
           make _out/bldr
           crane export ghcr.io/siderolabs/extensions:${{ inputs.siderolabs_tag }} | tar x -C internal/extensions/
           for target in glibc nvidia-driver-production zfs; do
             make $target \
-              PLATFORM=linux/amd64 \
+              PLATFORM="linux/amd64,linux/arm64" \
               PKGS="${{ inputs.release_tag }}" \
               PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
               REGISTRY="ghcr.io/${{ github.actor }}" \
@@ -166,11 +222,13 @@ jobs:
             crane export "$image" - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
           done
 
-      - name: Build manifest image
+      - name: Build extensions manifest
+        if: ${{ !failure() && !cancelled() && (inputs.build_extensions || steps.build-pkgs.conclusion == 'success') }}
+        working-directory: ./extensions
         run: |
           mkdir -p _out
           make docker-extensions \
-            PLATFORM=linux/amd64 \
+            PLATFORM="linux/amd64,linux/arm64" \
             PKGS="${{ inputs.release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
             REGISTRY="ghcr.io/${{ github.actor }}" \
@@ -179,46 +237,23 @@ jobs:
             CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
           cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
 
-  build-talos:
-    needs: [set-rel, build-pkgs]
-    if: ${{ !failure() && !cancelled() && (inputs.build_talos || needs.build-pkgs.result == 'success') }}
-    name: Build talos
-    runs-on: [runs-on,runner=32cpu-linux-x64,hdd=80,"run-id=${{ github.run_id }}"]
-
-    permissions:
-      contents: read
-      id-token: write
-      packages: write
-
-    steps:
-      - name: Checkout
+      - name: Checkout talos
+        if: ${{ !failure() && !cancelled() && (inputs.build_talos || steps.build-pkgs.conclusion == 'success') }}
         uses: actions/checkout@v4
         with:
+          path: talos
           repository: jfroy/siderolabs-talos
-          ref: ${{ needs.set-rel.outputs.release_branch }}-jfroy
+          ref: ${{ steps.set-rel.outputs.release_branch }}-jfroy
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.7.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.3.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build
+      - name: Build talos
+        if: ${{ !failure() && !cancelled() && (inputs.build_talos || steps.build-pkgs.conclusion == 'success') }}
+        working-directory: ./talos
         run: |
           mkdir -p _out
           for target in imager installer; do
             make $target \
               PLATFORM="linux/amd64,linux/arm64" \
-              INSTALLER_ARCH="amd64" \
               PKG_KERNEL="ghcr.io/${{ github.actor }}/siderolabs/kernel:${{ inputs.release_tag }}" \
               USERNAME="${{ github.actor }}" \
               REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
@@ -228,7 +263,9 @@ jobs:
             cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
           done
 
-      - name: Build talosctl image
+      - name: Build talosctl
+        if: ${{ !failure() && !cancelled() && (inputs.build_talos || steps.build-pkgs.conclusion == 'success') }}
+        working-directory: ./talos
         run: |
           mkdir -p _out
           make talosctl-image \
@@ -240,38 +277,9 @@ jobs:
             CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
           cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
 
-  build-nvidia-driver-container:
-    needs: [set-rel, build-pkgs]
-    if: ${{ !failure() && !cancelled() && inputs.build_nvidia_driver_container }}
-    name: Build NVIDIA driver container
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          repository: jfroy/gpu-driver-container
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3.3.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build
+      - name: Terraform destroy
+        if: ${{ always() }}
         run: |
-          cd talos
-          docker buildx build \
-            --build-arg DRIVER_VERSION=${{ env.NVIDIA_DRIVER_VERSION }} \
-            --build-arg KERNEL_VERSION=${{ env.KERNEL_VERSION }} \
-            --build-arg TALOS_VERSION=${{ inputs.release_tag }} \
-            -t ghcr.io/${{ github.actor }}/siderolabs/nvidia-driver:${{ env.NVIDIA_DRIVER_VERSION }}-${{ env.KERNEL_VERSION }}-talos${{ inputs.release_tag }} \
-            --push \
-            .
+          terraform destroy -auto-approve \
+            -var "ts_auth_key_amd64=${{ steps.ts-keys.outputs.ts_auth_key_amd64 }}" \
+            -var "ts_auth_key_arm64=${{ steps.ts-keys.outputs.ts_auth_key_arm64 }}"
