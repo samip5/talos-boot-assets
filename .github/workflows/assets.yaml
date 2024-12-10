@@ -96,14 +96,15 @@ jobs:
             "capabilities": {
               "devices": {
                 "create": {
-                  "reusable": false,
+                  "reusable": true,
                   "ephemeral": true,
                   "preauthorized": true,
                   "tags": ["tag:gha-talos-boot-assets"]
                 }
               }
             },
-            "expirySeconds": 300
+            "expirySeconds": 300,
+            "description": "${{ github.workflow }} ${{ github.run_id }}"
           }' | jq -r '.key')
           if [ "$ts_auth_key" = "null" ]; then
             echo "Tailscale API returned null auth key"
@@ -132,7 +133,7 @@ jobs:
           attempt=0
           while ! tailscale ip $instance_amd64_id; do
               attempt=$((attempt + 1))
-              if [ $attempt -gt 5 ]; then
+              if [ $attempt -gt 12 ]; then
                   exit 1
               fi
               sleep 5
@@ -140,7 +141,7 @@ jobs:
           attempt=0
           while ! tailscale ip $instance_arm64_id; do
               attempt=$((attempt + 1))
-              if [ $attempt -gt 5 ]; then
+              if [ $attempt -gt 12 ]; then
                   exit 1
               fi
               sleep 5
@@ -173,16 +174,17 @@ jobs:
         working-directory: ./pkgs
         run: |
           mkdir -p _out
+          registry="ghcr.io/${{ github.actor }}/siderolabs"
           for target in ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg; do
             make $target \
               PLATFORM="linux/amd64,linux/arm64" \
               USERNAME="${{ github.actor }}" \
-              REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
+              REGISTRY_AND_USERNAME="$registry" \
               TAG="${{ inputs.release_tag }}" \
               PUSH="true" \
               CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
-            cat _out/meta
-            cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
+            fq_image="$registry/$target:${{ inputs.release_tag }}@$(jq -j .\"containerimage.digest\" _out/meta)"
+            cosign sign --yes --recursive "$fq_image"
           done
 
       - name: Checkout extensions
@@ -199,20 +201,23 @@ jobs:
         working-directory: ./extensions
         run: |
           make _out/bldr
+          registry="ghcr.io/${{ github.actor }}/siderolabs"
           crane export ghcr.io/siderolabs/extensions:${{ inputs.siderolabs_tag }} | tar x -C internal/extensions/
           for target in glibc nvidia-driver-production zfs; do
             make $target \
               PLATFORM="linux/amd64,linux/arm64" \
               PKGS="${{ inputs.release_tag }}" \
-              PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
+              PKGS_PREFIX="$registry" \
               REGISTRY="ghcr.io/${{ github.actor }}" \
               TAG="${{ inputs.release_tag }}" \
               PUSH="true" \
               CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
-            image="$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
-            cosign sign --yes --recursive "$image"
-            echo "$image" >> internal/extensions/image-digests
-            crane export "$image" - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
+            tag="$(_out/bldr eval --target $target --build-arg TAG=${{ inputs.release_tag }} '{{.VERSION}}')"
+            digest="$(jq -j .\"containerimage.digest\" _out/meta)"
+            fq_image="${registry}/${target}:${tag}@${digest}"
+            cosign sign --yes --recursive "$fq_image"
+            echo "$fq_image" >> internal/extensions/image-digests
+            crane export "$fq_image" - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$fq_image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
           done
 
       - name: Build extensions manifest
@@ -220,15 +225,17 @@ jobs:
         working-directory: ./extensions
         run: |
           mkdir -p _out
+          tagged_image="ghcr.io/${{ github.actor }}/siderolabs/extensions:${{ inputs.release_tag }}"
           make docker-extensions \
             PLATFORM="linux/amd64,linux/arm64" \
             PKGS="${{ inputs.release_tag }}" \
             PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
             REGISTRY="ghcr.io/${{ github.actor }}" \
             TAG="${{ inputs.release_tag }}" \
-            TARGET_ARGS="--tag=ghcr.io/${{ github.actor }}/siderolabs/extensions:${{ inputs.release_tag }} --push=true" \
+            TARGET_ARGS="--tag=${tagged_image} --push=true" \
             CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
-          cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
+          fq_image="$tagged_image@$(jq -j .\"containerimage.digest\" _out/meta)"
+          cosign sign --yes --recursive "$fq_image"
 
       - name: Checkout talos
         if: ${{ !failure() && !cancelled() && (inputs.build_talos || steps.build-pkgs.conclusion == 'success') }}
@@ -244,16 +251,18 @@ jobs:
         working-directory: ./talos
         run: |
           mkdir -p _out
+          registry="ghcr.io/${{ github.actor }}/siderolabs"
           for target in imager installer; do
             make $target \
               PLATFORM="linux/amd64,linux/arm64" \
-              PKG_KERNEL="ghcr.io/${{ github.actor }}/siderolabs/kernel:${{ inputs.release_tag }}" \
+              PKG_KERNEL="$registry/kernel:${{ inputs.release_tag }}" \
               USERNAME="${{ github.actor }}" \
-              REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
+              REGISTRY_AND_USERNAME="$registry" \
               TAG="${{ inputs.release_tag }}" \
               PUSH="true" \
               CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
-            cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
+            fq_image="$registry/$target:${{ inputs.release_tag }}@$(jq -j .\"containerimage.digest\" _out/meta)"
+            cosign sign --yes --recursive "$fq_image"
           done
 
       - name: Build talosctl
@@ -261,14 +270,16 @@ jobs:
         working-directory: ./talos
         run: |
           mkdir -p _out
+          registry="ghcr.io/${{ github.actor }}/siderolabs"
           make talosctl-image \
             PLATFORM="linux/amd64,linux/arm64" \
             USERNAME="${{ github.actor }}" \
-            REGISTRY_AND_USERNAME="ghcr.io/${{ github.actor }}/siderolabs" \
+            REGISTRY_AND_USERNAME="$registry" \
             TAG="${{ inputs.release_tag }}" \
             PUSH="true" \
             CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
-          cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
+          fq_image="$registry/talosctl:${{ inputs.release_tag }}@$(jq -j .\"containerimage.digest\" _out/meta)"
+          cosign sign --yes --recursive "$fq_image"
 
       - name: Terraform destroy
         if: ${{ always() }}
