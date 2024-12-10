@@ -52,7 +52,7 @@ build {
   provisioner "shell" {
     inline = [
       "sudo yum update -y",
-      "sudo yum install -y docker git",
+      "sudo yum install -y containerd docker git",
       "sudo systemctl start docker",
       "sudo systemctl enable docker",
       "sudo usermod -aG docker ec2-user"
@@ -60,23 +60,28 @@ build {
   }
 
   provisioner "shell" {
-    inline = [
-      "BUILDKIT_VERSION=0.18.1",
-      "ARCH=$(uname -m)",
-      "if [ \"$ARCH\" = \"amd64\" ]; then",
-      "  BUILDKIT_FILE=\"buildkit-v$BUILDKIT_VERSION.linux-amd64.tar.gz\"",
-      "else",
-      "  BUILDKIT_FILE=\"buildkit-v$BUILDKIT_VERSION.linux-arm64.tar.gz\"",
-      "fi",
-      "sudo curl -sSL \"https://github.com/moby/buildkit/releases/download/v$BUILDKIT_VERSION/$BUILDKIT_FILE\" -o buildkit.tar.gz",
-      "sudo tar -xzf buildkit.tar.gz -C /usr/local/bin --strip-components=1"
+    inline = [<<EOF
+BUILDKIT_VERSION=0.18.1
+ARCH=$(uname -m)
+case "$ARCH" in
+  x86_64)
+    BUILDKIT_FILE="buildkit-v$BUILDKIT_VERSION.linux-amd64.tar.gz"
+    ;;
+  aarch64)
+    BUILDKIT_FILE="buildkit-v$BUILDKIT_VERSION.linux-arm64.tar.gz"
+    ;;
+  *)
+    echo "Unsupported architecture: $ARCH"
+    exit 1
+    ;;
+esac
+sudo curl -sSL "https://github.com/moby/buildkit/releases/download/v$BUILDKIT_VERSION/$BUILDKIT_FILE" -o buildkit.tar.gz
+sudo tar -xzf buildkit.tar.gz -C /usr/local/bin --strip-components=1
+      EOF
     ]
   }
-
   provisioner "shell" {
-    inline = [
-      "curl -fsSL https://tailscale.com/install.sh | sudo sh"
-    ]
+    inline = ["curl -fsSL https://tailscale.com/install.sh | sudo sh"]
   }
 
   provisioner "file" {
@@ -86,7 +91,7 @@ Description=BuildKit daemon
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/buildkitd --addr tcp://0.0.0.0:9999 --addr unix:///run/buildkit/buildkitd.sock --debug
+ExecStart=/usr/local/bin/buildkitd --oci-worker=false --containerd-worker=true --addr tcp://0.0.0.0:9999 --addr unix:///run/buildkit/buildkitd.sock --debug
 Restart=always
 
 [Install]
@@ -114,15 +119,17 @@ EOF
 
   provisioner "file" {
     content     = <<EOF
-PORT="41641"
-FLAGS="-state mem:"
+FLAGS="--state mem:"
+PORT="0"
 EOF
     destination = "/tmp/tailscaled"
   }
 
   provisioner "shell" {
     inline = [
+      "sudo systemctl stop tailscaled.service",
       "sudo mv /tmp/tailscaled /etc/default/tailscaled",
+      "sudo rm -rf /var/lib/tailscale",
       "sudo mkdir -p /etc/buildkit",
       "sudo mv /tmp/buildkitd.toml /etc/buildkit/buildkitd.toml",
       "sudo mv /tmp/buildkitd.service /etc/systemd/system/buildkitd.service",

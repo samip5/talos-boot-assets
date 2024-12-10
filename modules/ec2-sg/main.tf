@@ -1,30 +1,48 @@
+data "aws_region" "current" {}
+
+data "aws_ec2_managed_prefix_list" "ec2_instance_connect" {
+  name = "com.amazonaws.${data.aws_region.current.name}.ec2-instance-connect"
+}
+
 resource "aws_security_group" "buildkit" {
   name        = "buildkit"
   description = "Security group for buildkit instance"
   vpc_id      = var.vpc_id
 
-  ingress {
-    from_port   = 9999
-    to_port     = 9999
-    protocol    = "tcp"
-    cidr_blocks = ["100.64.0.0/10"] # Tailscale VPN CIDR
-  }
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["100.64.0.0/10"] # Tailscale VPN CIDR
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = {
     Name = "buildkit"
   }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ts_builkit" {
+  security_group_id = aws_security_group.buildkit.id
+
+  cidr_ipv4   = "100.64.0.0/10"
+  from_port   = 9999
+  ip_protocol = "tcp"
+  to_port     = 9999
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ts_ssh" {
+  security_group_id = aws_security_group.buildkit.id
+
+  cidr_ipv4   = "100.64.0.0/10"
+  from_port   = 22
+  ip_protocol = "tcp"
+  to_port     = 22
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ec2_ic_ssh" {
+  security_group_id = aws_security_group.buildkit.id
+
+  from_port      = 22
+  ip_protocol    = "tcp"
+  prefix_list_id = data.aws_ec2_managed_prefix_list.ec2_instance_connect.id
+  to_port        = 22
+}
+
+resource "aws_vpc_security_group_egress_rule" "all" {
+  security_group_id = aws_security_group.buildkit.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
 }

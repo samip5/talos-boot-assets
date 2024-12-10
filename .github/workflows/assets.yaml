@@ -88,7 +88,7 @@ jobs:
           fi
           echo "::add-mask::$ts_access_token"
 
-          ts_auth_key_amd64=$(curl --silent --request POST \
+          ts_auth_key=$(curl --silent --request POST \
             --url 'https://api.tailscale.com/api/v2/tailnet/-/keys?all=true' \
             --header "Authorization: Bearer $ts_access_token" \
             --header 'Content-Type: application/json' \
@@ -103,39 +103,14 @@ jobs:
                 }
               }
             },
-            "expirySeconds": 1000
+            "expirySeconds": 300
           }' | jq -r '.key')
-          if [ "$ts_auth_key_amd64" = "null" ]; then
-            echo "Tailscale API returned null auth key for amd64"
+          if [ "$ts_auth_key" = "null" ]; then
+            echo "Tailscale API returned null auth key"
             exit 1
           fi
-          echo "::add-mask::$ts_auth_key_amd64"
-
-          ts_auth_key_arm64=$(curl --silent --request POST \
-            --url 'https://api.tailscale.com/api/v2/tailnet/-/keys?all=true' \
-            --header "Authorization: Bearer $ts_access_token" \
-            --header 'Content-Type: application/json' \
-            --data '{
-            "capabilities": {
-              "devices": {
-                "create": {
-                  "reusable": false,
-                  "ephemeral": true,
-                  "preauthorized": true,
-                  "tags": ["tag:gha-talos-boot-assets"]
-                }
-              }
-            },
-            "expirySeconds": 1000
-          }' | jq -r '.key')
-          if [ "$ts_auth_key_arm64" = "null" ]; then
-            echo "Tailscale API returned null auth key for arm64"
-            exit 1
-          fi
-          echo "::add-mask::$ts_auth_key_arm64"
-
-          echo "ts_auth_key_amd64=$ts_auth_key_amd64" >> $GITHUB_OUTPUT
-          echo "ts_auth_key_arm64=$ts_auth_key_arm64" >> $GITHUB_OUTPUT
+          echo "::add-mask::$ts_auth_key"
+          echo "ts_auth_key=$ts_auth_key" >> $GITHUB_OUTPUT
 
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -151,10 +126,27 @@ jobs:
         run: |
           terraform init
           terraform apply -auto-approve \
-            -var "ts_auth_key_amd64=${{ steps.ts-keys.outputs.ts_auth_key_amd64 }}" \
-            -var "ts_auth_key_arm64=${{ steps.ts-keys.outputs.ts_auth_key_arm64 }}"
-          echo "instance_amd64_id=$(terraform output --raw instance_amd64_id)" >> $GITHUB_OUTPUT
-          echo "instance_arm64_id=$(terraform output --raw instance_arm64_id)" >> $GITHUB_OUTPUT
+            -var "ts_auth_key=${{ steps.ts-keys.outputs.ts_auth_key }}"
+          instance_amd64_id=$(terraform output --raw instance_amd64_id)
+          instance_arm64_id=$(terraform output --raw instance_arm64_id)
+          attempt=0
+          while ! tailscale ip $instance_amd64_id; do
+              attempt=$((attempt + 1))
+              if [ $attempt -gt 5 ]; then
+                  exit 1
+              fi
+              sleep 5
+          done
+          attempt=0
+          while ! tailscale ip $instance_arm64_id; do
+              attempt=$((attempt + 1))
+              if [ $attempt -gt 5 ]; then
+                  exit 1
+              fi
+              sleep 5
+          done
+          echo "instance_amd64_id=$instance_amd64_id" >> $GITHUB_OUTPUT
+          echo "instance_arm64_id=$instance_arm64_id" >> $GITHUB_OUTPUT
 
       - name: Setup buildkit
         uses: docker/setup-buildx-action@v3
@@ -189,6 +181,7 @@ jobs:
               TAG="${{ inputs.release_tag }}" \
               PUSH="true" \
               CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
+            cat _out/meta
             cosign sign --yes --recursive "$(jq -j .\"image.name\" _out/meta)@$(jq -j .\"containerimage.digest\" _out/meta)"
           done
 
@@ -281,5 +274,4 @@ jobs:
         if: ${{ always() }}
         run: |
           terraform destroy -auto-approve \
-            -var "ts_auth_key_amd64=${{ steps.ts-keys.outputs.ts_auth_key_amd64 }}" \
-            -var "ts_auth_key_arm64=${{ steps.ts-keys.outputs.ts_auth_key_arm64 }}"
+            -var "ts_auth_key=${{ steps.ts-keys.outputs.ts_auth_key }}"

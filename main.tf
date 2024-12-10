@@ -23,12 +23,12 @@ module "ec2-sg" {
 }
 
 module "ec2" {
-  source               = "./modules/ec2"
-  iam_instance_profile = module.iam.iam_instance_profile
-  subnet_ids           = module.vpc.subnet_ids
-  ts_auth_key_amd64    = var.ts_auth_key_amd64
-  ts_auth_key_arm64    = var.ts_auth_key_arm64
-  security_group_id    = module.ec2-sg.security_group_id
+  source                  = "./modules/ec2"
+  iam_instance_profile    = module.iam.iam_instance_profile
+  route_table_association = module.vpc.route_table_association
+  security_group_id       = module.ec2-sg.security_group_id
+  subnet_ids              = module.vpc.subnet_ids
+  ts_auth_key             = var.ts_auth_key
 }
 
 output "instance_amd64_id" {

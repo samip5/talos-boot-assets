@@ -1,11 +1,12 @@
 output "vpc_id" {
-  value = aws_vpc.main.id
+  value = aws_vpc.buildkit.id
 }
 
 output "subnet_ids" {
-  value = values(aws_subnet.private)[*].id
+  value = aws_subnet.buildkit[*].id
 }
 
-output "s3_gateway_endpoint_id" {
-  value = aws_vpc_endpoint.s3.id
+output "route_table_association" {
+  value      = {}
+  depends_on = [aws_route_table_association.buildkit]
 }
