@@ -155,16 +155,16 @@ resource "aws_autoscaling_group" "amd64" {
   vpc_zone_identifier = var.subnet_ids
 
   mixed_instances_policy {
+    instances_distribution {
+      on_demand_percentage_above_base_capacity = 0
+      spot_allocation_strategy                 = "capacity-optimized"
+    }
+
     launch_template {
       launch_template_specification {
         launch_template_id = aws_launch_template.amd64.id
         version            = "$Latest"
       }
-    }
-
-    instances_distribution {
-      on_demand_percentage_above_base_capacity = 0
-      spot_instance_pools                      = 2
     }
   }
 
@@ -187,16 +187,16 @@ resource "aws_autoscaling_group" "arm64" {
   vpc_zone_identifier = var.subnet_ids
 
   mixed_instances_policy {
+    instances_distribution {
+      on_demand_percentage_above_base_capacity = 0
+      spot_allocation_strategy                 = "capacity-optimized"
+    }
+
     launch_template {
       launch_template_specification {
         launch_template_id = aws_launch_template.arm64.id
         version            = "$Latest"
       }
-    }
-
-    instances_distribution {
-      on_demand_percentage_above_base_capacity = 0
-      spot_instance_pools                      = 2
     }
   }
 
