@@ -52,10 +52,7 @@ build {
   provisioner "shell" {
     inline = [
       "sudo yum update -y",
-      "sudo yum install -y containerd docker git",
-      "sudo systemctl start docker",
-      "sudo systemctl enable docker",
-      "sudo usermod -aG docker ec2-user"
+      "sudo yum install -y containerd git",
     ]
   }
 
@@ -85,35 +82,12 @@ sudo tar -xzf buildkit.tar.gz -C /usr/local/bin --strip-components=1
   }
 
   provisioner "file" {
-    content     = <<EOF
-[Unit]
-Description=BuildKit daemon
-After=network.target
-
-[Service]
-ExecStart=/usr/local/bin/buildkitd --oci-worker=false --containerd-worker=true --addr tcp://0.0.0.0:9999 --addr unix:///run/buildkit/buildkitd.sock --debug
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF
+    source      = "ami/buildkitd.service"
     destination = "/tmp/buildkitd.service"
   }
 
   provisioner "file" {
-    content     = <<EOF
-[worker.oci]
-  gc = true
-  gckeepstorage = 50000
-
-  [[worker.oci.gcpolicy]]
-    keepBytes = 10737418240
-    keepDuration = 604800
-    filters = [ "type==source.local", "type==exec.cachemount", "type==source.git.checkout"]
-  [[worker.oci.gcpolicy]]
-    all = true
-    keepBytes = 53687091200
-EOF
+    source      = "ami/buildkitd.toml"
     destination = "/tmp/buildkitd.toml"
   }
 
@@ -130,6 +104,11 @@ EOF
       "sudo systemctl stop tailscaled.service",
       "sudo mv /tmp/tailscaled /etc/default/tailscaled",
       "sudo rm -rf /var/lib/tailscale",
+    ]
+  }
+
+  provisioner "shell" {
+    inline = [
       "sudo mkdir -p /etc/buildkit",
       "sudo mv /tmp/buildkitd.toml /etc/buildkit/buildkitd.toml",
       "sudo mv /tmp/buildkitd.service /etc/systemd/system/buildkitd.service",

@@ -1,0 +1,11 @@
+[Unit]
+Description=BuildKit daemon
+After=network.target
+Requires=containerd.service
+
+[Service]
+ExecStart=/usr/local/bin/buildkitd
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
