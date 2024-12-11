@@ -44,17 +44,15 @@ resource "aws_launch_template" "amd64" {
   image_id = data.aws_ami.amd64.id
 
   instance_requirements {
+    bare_metal = "excluded"
+
     vcpu_count {
       min = 16
-      max = 32
     }
 
     memory_mib {
-      min = 16384 # 16 GB in MiB
+      min = 16384
     }
-
-    cpu_manufacturers = ["amd"]
-    bare_metal        = "excluded"
   }
 
   block_device_mappings {
@@ -99,17 +97,15 @@ resource "aws_launch_template" "arm64" {
   image_id = data.aws_ami.arm64.id
 
   instance_requirements {
+    bare_metal = "excluded"
+
     vcpu_count {
       min = 16
-      max = 32
     }
 
     memory_mib {
-      min = 16384 # 16 GB in MiB
+      min = 16384
     }
-
-    cpu_manufacturers = ["amazon-web-services"]
-    bare_metal        = "excluded"
   }
 
   block_device_mappings {
