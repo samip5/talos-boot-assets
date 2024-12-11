@@ -3,7 +3,7 @@ data "aws_ami" "amd64" {
 
   filter {
     name   = "name"
-    values = ["buildkit-amd64-*"]
+    values = ["buildkit-amd64"]
   }
 
   filter {
@@ -19,7 +19,7 @@ data "aws_ami" "arm64" {
 
   filter {
     name   = "name"
-    values = ["buildkit-arm64-*"]
+    values = ["buildkit-arm64"]
   }
 
   filter {
