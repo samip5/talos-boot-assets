@@ -10,11 +10,6 @@
   enabled = true
   gc = true
 
-[worker.containerd.runtime]
-  name = "io.containerd.runc.v2"
-  path = "/path/to/containerd/runc/shim"
-  options = { BinaryName = "runc" }
-
 [[worker.containerd.gcpolicy]]
   filters = ["type==source.local", "type==exec.cachemount", "type==source.git.checkout"]
   reservedSpace = "10GiB"
