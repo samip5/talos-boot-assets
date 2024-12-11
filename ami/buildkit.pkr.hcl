@@ -24,22 +24,26 @@ locals {
 
 # amd64 Builder
 source "amazon-ebs" "buildkit-amd64" {
-  ami_name      = "buildkit-amd64-${local.timestamp}"
-  instance_type = "t2.micro"
-  region        = var.region
-  source_ami    = "ami-055e3d4f0bbeb5878" # Amazon Linux 2023 amd64
-  ssh_username  = "ec2-user"
-  tags          = merge(local.common_tags, { Architecture = "amd64" })
+  ami_name              = "buildkit-amd64"
+  force_delete_snapshot = true
+  force_deregister      = true
+  instance_type         = "t2.micro"
+  region                = var.region
+  source_ami            = "ami-055e3d4f0bbeb5878" # Amazon Linux 2023 amd64
+  ssh_username          = "ec2-user"
+  tags                  = merge(local.common_tags, { Architecture = "amd64" })
 }
 
 # arm64 Builder
 source "amazon-ebs" "buildkit-arm64" {
-  ami_name      = "buildkit-arm64-${local.timestamp}"
-  instance_type = "t4g.micro"
-  region        = var.region
-  source_ami    = "ami-01167b661200e49e7" # Amazon Linux 2023 arm64
-  ssh_username  = "ec2-user"
-  tags          = merge(local.common_tags, { Architecture = "arm64" })
+  ami_name              = "buildkit-arm64"
+  force_delete_snapshot = true
+  force_deregister      = true
+  instance_type         = "t4g.micro"
+  region                = var.region
+  source_ami            = "ami-01167b661200e49e7" # Amazon Linux 2023 arm64
+  ssh_username          = "ec2-user"
+  tags                  = merge(local.common_tags, { Architecture = "arm64" })
 }
 
 # Build configuration
