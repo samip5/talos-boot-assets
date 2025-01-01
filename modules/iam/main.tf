@@ -26,7 +26,7 @@ resource "aws_iam_policy" "secrets_access" {
         Action = [
           "secretsmanager:GetSecretValue",
         ]
-        Resource = "arn:aws:secretsmanager:us-west-2:*:secret:buildkit*"
+        Resource = "arn:aws:secretsmanager:north-eu-1:*:secret:buildkit*"
       },
     ]
   })

@@ -116,7 +116,7 @@ jobs:
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::992382661722:role/talos-boot-assets-gha-terraform-buildkit
+          role-to-assume: arn:aws:iam::277707128529:role/talos-boot-assets-gha-terraform-buildkit
           aws-region: eu-north-1
 
       - name: Checkout workflow
