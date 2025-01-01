@@ -117,7 +117,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::992382661722:role/talos-boot-assets-gha-terraform-buildkit
-          aws-region: us-west-2
+          aws-region: eu-north-1
 
       - name: Checkout workflow
         uses: actions/checkout@v4
@@ -164,8 +164,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: pkgs
-          repository: jfroy/siderolabs-pkgs
-          ref: ${{ steps.set-rel.outputs.release_branch }}-jfroy
+          repository: samip5/siderolabs-pkgs
+          ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build pkgs
@@ -192,8 +192,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: extensions
-          repository: jfroy/siderolabs-extensions
-          ref: ${{ steps.set-rel.outputs.release_branch }}-jfroy
+          repository: samip5/siderolabs-extensions
+          ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build extensions
@@ -242,8 +242,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: talos
-          repository: jfroy/siderolabs-talos
-          ref: ${{ steps.set-rel.outputs.release_branch }}-jfroy
+          repository: siderolabs/talos
+          ref: ${{ steps.set-rel.outputs.release_branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build talos
