@@ -36,7 +36,6 @@ resource "aws_vpc_security_group_ingress_rule" "ts_ssh_v4" {
   security_group_id = aws_security_group.buildkit.id
 
   cidr_ipv4   = "100.64.0.0/10"
-  cidr_ipv6   = "fd7a:115c:a1e0::/48"
   from_port   = 22
   ip_protocol = "tcp"
   to_port     = 22
