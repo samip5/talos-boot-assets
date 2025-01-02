@@ -30,7 +30,7 @@ resource "aws_iam_policy" "secrets_access" {
           "secretsmanager:ListSecretVersionIds",
           "secretsmanager:ListSecrets"
         ]
-       Resource = "arn:aws:secretsmanager:north-eu-1:*:secret:buildkit*"
+       Resource = "arn:aws:secretsmanager:eu-north-1:*:secret:buildkit*"
       },
     ]
   })
