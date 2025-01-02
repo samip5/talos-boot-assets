@@ -3,6 +3,7 @@ data "aws_region" "current" {}
 
 resource "aws_vpc" "buildkit" {
   cidr_block           = "10.0.0.0/16"
+  assign_generated_ipv6_cidr_block = true
   enable_dns_support   = true
   enable_dns_hostnames = true
 
@@ -16,8 +17,10 @@ resource "aws_subnet" "buildkit" {
 
   vpc_id                              = aws_vpc.buildkit.id
   cidr_block                          = cidrsubnet("10.0.0.0/16", 8, count.index)
+  ipv6_cidr_block                     = cidrsubnet(aws_vpc.buildkit.ipv6_cidr_block, 8, count.index)
   availability_zone                   = data.aws_availability_zones.available.names[count.index]
   map_public_ip_on_launch             = true
+  assign_ipv6_address_on_creation     = true
   private_dns_hostname_type_on_launch = "resource-name"
 
   tags = {
@@ -38,6 +41,11 @@ resource "aws_route_table" "buildkit" {
 
   route {
     cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.buildkit.id
+  }
+
+  route {
+    ipv6_cidr_block = "::/0"
     gateway_id = aws_internet_gateway.buildkit.id
   }
 
