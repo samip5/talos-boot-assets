@@ -165,7 +165,8 @@ jobs:
         with:
           path: pkgs
           repository: samip5/siderolabs-pkgs
-          ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
+          #ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
+          ref: dvb
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build pkgs
@@ -175,7 +176,7 @@ jobs:
         run: |
           mkdir -p _out
           registry="ghcr.io/${{ github.actor }}/siderolabs"
-          for target in ca-certificates base kernel nvidia-open-gpu-kernel-modules-production-pkg zfs-pkg; do
+          for target in ca-certificates base kernel zfs-pkg; do
             make $target \
               PLATFORM="linux/amd64,linux/arm64" \
               USERNAME="${{ github.actor }}" \
@@ -193,7 +194,8 @@ jobs:
         with:
           path: extensions
           repository: samip5/siderolabs-extensions
-          ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
+          #ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
+          ref: dvb-fixing
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build extensions
@@ -203,7 +205,7 @@ jobs:
           make _out/bldr
           registry="ghcr.io/${{ github.actor }}/siderolabs"
           crane export ghcr.io/siderolabs/extensions:${{ inputs.siderolabs_tag }} | tar x -C internal/extensions/
-          for target in nvidia-driver-production zfs; do
+          for target in i915 intel-ucode util-linux-tools dvb-cx23885 zfs; do
             make $target \
               PLATFORM="linux/amd64,linux/arm64" \
               PKGS="${{ inputs.release_tag }}" \
