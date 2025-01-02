@@ -14,20 +14,37 @@ resource "aws_security_group" "buildkit" {
   }
 }
 
-resource "aws_vpc_security_group_ingress_rule" "ts_builkit" {
+resource "aws_vpc_security_group_ingress_rule" "ts_builkit_v4" {
   security_group_id = aws_security_group.buildkit.id
 
   cidr_ipv4   = "100.64.0.0/10"
+  from_port   = 9999
+  ip_protocol = "tcp"
+  to_port     = 9999
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ts_builkit_v6" {
+  security_group_id = aws_security_group.buildkit.id
+
   cidr_ipv6   = "fd7a:115c:a1e0::/48"
   from_port   = 9999
   ip_protocol = "tcp"
   to_port     = 9999
 }
 
-resource "aws_vpc_security_group_ingress_rule" "ts_ssh" {
+resource "aws_vpc_security_group_ingress_rule" "ts_ssh_v4" {
   security_group_id = aws_security_group.buildkit.id
 
   cidr_ipv4   = "100.64.0.0/10"
+  cidr_ipv6   = "fd7a:115c:a1e0::/48"
+  from_port   = 22
+  ip_protocol = "tcp"
+  to_port     = 22
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ts_ssh_v6" {
+  security_group_id = aws_security_group.buildkit.id
+
   cidr_ipv6   = "fd7a:115c:a1e0::/48"
   from_port   = 22
   ip_protocol = "tcp"
@@ -43,9 +60,14 @@ resource "aws_vpc_security_group_ingress_rule" "ec2_ic_ssh" {
   to_port        = 22
 }
 
-resource "aws_vpc_security_group_egress_rule" "all" {
+resource "aws_vpc_security_group_egress_rule" "all_v4" {
   security_group_id = aws_security_group.buildkit.id
   cidr_ipv4         = "0.0.0.0/0"
-  cidr_ipv6         = "::/0"
+  ip_protocol       = "-1"
+}
+
+resource "aws_vpc_security_group_egress_rule" "all_v6" {
+  security_group_id = aws_security_group.buildkit.id
+  cidr_ipv4         = "::/0"
   ip_protocol       = "-1"
 }

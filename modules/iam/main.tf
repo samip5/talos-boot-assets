@@ -1,6 +1,6 @@
 resource "aws_iam_role" "buildkit" {
   name = "buildkit"
-  max_session_duration = "4h"
+  max_session_duration = "4"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
