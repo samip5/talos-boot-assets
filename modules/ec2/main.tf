@@ -48,7 +48,7 @@ resource "aws_launch_template" "amd64" {
 
     vcpu_count {
       min = 24
-      max = 24
+      max = 32
     }
 
     memory_mib {
@@ -101,8 +101,8 @@ resource "aws_launch_template" "arm64" {
     bare_metal = "excluded"
 
     vcpu_count {
-      min = 24
-      max = 24
+      min = 8
+      max = 16
     }
 
     memory_mib {
