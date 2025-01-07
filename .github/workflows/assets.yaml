@@ -167,7 +167,7 @@ jobs:
           path: pkgs
           repository: samip5/siderolabs-pkgs
           #ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
-          ref: dvb
+          ref: nain
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build pkgs
