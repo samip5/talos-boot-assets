@@ -25,11 +25,10 @@ on:
         type: boolean
         default: true
         required: false
-      build_nvidia_driver_container:
-        description: Build NVIDIA driver container
-        type: boolean
-        default: false
-        required: false
+      extensions_repo_ref:
+        description: Git reference for extensions
+        default: f0039e65561535e26bba9a7e57c0fcbb8e4c4636
+        required: true
 
 concurrency:
   group: ${{ github.actor }}-build
@@ -197,7 +196,7 @@ jobs:
           path: extensions
           repository: samip5/siderolabs-extensions
           #ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
-          ref: dvb-fixing
+          ref: ${{ inputs.extensions_repo_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build extensions
@@ -207,7 +206,7 @@ jobs:
           make _out/bldr
           registry="ghcr.io/${{ github.actor }}/siderolabs"
           crane export ghcr.io/siderolabs/extensions:${{ inputs.siderolabs_tag }} | tar x -C internal/extensions/
-          for target in i915 intel-ucode util-linux-tools dvb-cx23885 zfs; do
+          for target in i915 intel-ucode util-linux-tools dvb-cx23885; do
             make $target \
               PLATFORM="linux/amd64,linux/arm64" \
               PKGS="${{ inputs.release_tag }}" \
