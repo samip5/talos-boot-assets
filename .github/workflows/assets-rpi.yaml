@@ -180,7 +180,6 @@ jobs:
               platforms: linux/arm64
 
       - name: Checkout talos-kernel
-        if: ${{ !failure() && !cancelled() && inputs.build_pkgs }}
         uses: actions/checkout@v4
         with:
           path: talos-kernel
