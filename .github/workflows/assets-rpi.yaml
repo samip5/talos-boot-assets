@@ -98,7 +98,7 @@ jobs:
               }
             },
             "expirySeconds": 300,
-            "description": "${{ github.workflow }} ${{ github.run_id }}"
+            "description": "${{ github.run_id }}"
           }' | jq -r '.key')
           if [ "$ts_auth_key" = "null" ]; then
             echo "Tailscale API returned null auth key"
@@ -118,7 +118,7 @@ jobs:
                 }
               },
               "expirySeconds": 300,
-              "description": "${{ github.workflow }} ${{ github.run_id }}"
+              "description": "${{ github.run_id }}"
             }')
             echo "Curl output: $curl_output"
             curl -s \
