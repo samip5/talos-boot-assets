@@ -190,7 +190,7 @@ jobs:
         
       - name: Build talos-kernel (for RPi)
         id: build-rpi-kernel
-        working-directory: ./pkgs
+        working-directory: ./talos-kernel
         run: |
          mkdir -p _out
           registry="ghcr.io/${{ github.actor }}/siderolabs"
