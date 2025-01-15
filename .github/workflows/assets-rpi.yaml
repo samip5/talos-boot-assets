@@ -102,6 +102,30 @@ jobs:
           }' | jq -r '.key')
           if [ "$ts_auth_key" = "null" ]; then
             echo "Tailscale API returned null auth key"
+            curl_output=$(curl --silent --request POST \
+              --url 'https://api.tailscale.com/api/v2/tailnet/-/keys?all=true' \
+              --header "Authorization: Bearer $ts_access_token" \
+              --header 'Content-Type: application/json' \
+              --data '{
+              "capabilities": {
+                "devices": {
+                  "create": {
+                    "reusable": true,
+                    "ephemeral": true,
+                    "preauthorized": true,
+                    "tags": ["tag:gha-talos-boot-assets"]
+                  }
+                }
+              },
+              "expirySeconds": 300,
+              "description": "${{ github.workflow }} ${{ github.run_id }}"
+            }')
+            echo "Curl output: $curl_output"
+            curl -s \
+              --form-string "token=${{ secrets.PUSHOVER_TOKEN }}" \
+              --form-string "user=${{ secrets.PUSHOVER_USER }}" \
+              --form-string "message=Failed to generate Tailscale auth key. Curl output: $curl_output" \
+              https://api.pushover.net/1/messages.json
             exit 1
           fi
           echo "::add-mask::$ts_auth_key"
