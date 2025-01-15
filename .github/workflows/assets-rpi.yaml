@@ -63,12 +63,21 @@ jobs:
       - name: Generate tailscale keys
         id: ts-keys
         run: |
-          ts_access_token=$(curl --silent \
+         ts_access_token=$(curl --silent \
             -d "client_id=${{ secrets.TS_OAUTH_CLIENT_ID }}" \
             -d "client_secret=${{ secrets.TS_OAUTH_SECRET }}" \
             "https://api.tailscale.com/api/v2/oauth/token" | jq -r '.access_token')
           if [ "$ts_access_token" = "null" ]; then
             echo "Tailscale API returned null access token"
+            curl_output=$(curl --silent \
+              -d "client_id=${{ secrets.TS_OAUTH_CLIENT_ID }}" \
+              -d "client_secret=${{ secrets.TS_OAUTH_SECRET }}" \
+              "https://api.tailscale.com/api/v2/oauth/token")
+            curl -s \
+              --form-string "token=${{ secrets.PUSHOVER_TOKEN }}" \
+              --form-string "user=${{ secrets.PUSHOVER_USER }}" \
+              --form-string "message=Failed to generate Tailscale access token. Curl output: $curl_output" \
+              https://api.pushover.net/1/messages.json
             exit 1
           fi
           echo "::add-mask::$ts_access_token"
