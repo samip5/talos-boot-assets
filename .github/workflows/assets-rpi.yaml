@@ -242,8 +242,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: talos
-          repository: siderolabs/talos
-          #ref: ${{ steps.set-rel.outputs.release_branch }}
+          repository: skyssolutions/talos
+          ref: skylab
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build talos
