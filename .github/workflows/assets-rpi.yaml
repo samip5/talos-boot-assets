@@ -191,7 +191,7 @@ jobs:
           repository: skyssolutions/talos-kernel
           ref: skylab
           token: ${{ secrets.GITHUB_TOKEN }}
-        
+
       - name: Build talos-kernel (for RPi)
         id: build-rpi-kernel
         working-directory: ./talos-kernel
@@ -225,7 +225,7 @@ jobs:
         run: |
           mkdir -p _out
           registry="ghcr.io/${{ github.actor }}/siderolabs"
-          for target in sbc-raspberrypi; do
+          for target in overlays; do
             make $target \
               PLATFORM="linux/arm64" \
               USERNAME="${{ github.actor }}" \
