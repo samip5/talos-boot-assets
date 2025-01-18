@@ -32,7 +32,7 @@ concurrency:
 jobs:
   build-rpi:
     name: Foundation kernel build
-    runs-on: buildjet-24vcpu-ubuntu-2204-arm
+    runs-on: buildjet-32vcpu-ubuntu-2204-arm
 
     permissions:
       contents: read
