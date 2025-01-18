@@ -15,6 +15,11 @@ on:
         type: boolean
         default: true
         required: false
+      build_overlay:
+        description: Build overlays
+        type: boolean
+        default: true
+        required: false
 
 concurrency:
   group: ${{ github.actor }}-build
@@ -205,6 +210,33 @@ jobs:
             cosign sign --yes --recursive "$fq_image"
           done
 
+      - name: Checkout overlays repo
+        if: ${{ !failure() && !cancelled() && (inputs.build_overlay || steps.build-pkgs.conclusion == 'success') }}
+        uses: actions/checkout@v4
+        with:
+          path: overlays
+          repository: skyssolutions/siderolabs-overlays
+          ref: skylab
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build overlays
+        if: ${{ !failure() && !cancelled() && (inputs.build_overlay || steps.build-pkgs.conclusion == 'success') }}
+        working-directory: ./overlays
+        run: |
+          mkdir -p _out
+          registry="ghcr.io/${{ github.actor }}/siderolabs"
+          for target in sbc-raspberrypi; do
+            make $target \
+              PLATFORM="linux/arm64" \
+              USERNAME="${{ github.actor }}" \
+              REGISTRY_AND_USERNAME="$registry" \
+              TAG="${{ inputs.release_tag }}" \
+              PUSH="true" \
+              CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
+            fq_image="$registry/$target:${{ inputs.release_tag }}@$(jq -j .\"containerimage.digest\" _out/meta)"
+            cosign sign --yes --recursive "$fq_image"
+          done
+
       - name: Checkout talos
         if: ${{ !failure() && !cancelled() && (inputs.build_talos || steps.build-pkgs.conclusion == 'success') }}
         uses: actions/checkout@v4
@@ -232,6 +264,7 @@ jobs:
             fq_image="$registry/$target:${{ inputs.release_tag }}@$(jq -j .\"containerimage.digest\" _out/meta)"
             cosign sign --yes --recursive "$fq_image"
           done
+        
 
       - name: Build talosctl
         if: ${{ !failure() && !cancelled() && (inputs.build_talos || steps.build-pkgs.conclusion == 'success') }}
