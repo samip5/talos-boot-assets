@@ -151,6 +151,12 @@ jobs:
       - name: Checkout workflow
         uses: actions/checkout@v4
 
+      - name: Setup buildkit
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/arm64
+
+
       - name: Checkout talos-kernel
         uses: actions/checkout@v4
         if: ${{ !failure() && !cancelled() && (inputs.build_kernel || steps.build-pkgs.conclusion == 'success') }}
