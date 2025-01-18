@@ -15,6 +15,11 @@ on:
         type: boolean
         default: true
         required: false
+      build_kernel:
+        description: Build kernel
+        type: boolean
+        default: true
+        required: false
       build_overlay:
         description: Build overlays
         type: boolean
@@ -186,6 +191,7 @@ jobs:
 
       - name: Checkout talos-kernel
         uses: actions/checkout@v4
+        if: ${{ !failure() && !cancelled() && (inputs.build_kernel || steps.build-pkgs.conclusion == 'success') }}
         with:
           path: talos-kernel
           repository: skyssolutions/talos-kernel
@@ -194,6 +200,7 @@ jobs:
 
       - name: Build talos-kernel (for RPi)
         id: build-rpi-kernel
+        if: ${{ !failure() && !cancelled() && (inputs.build_kernel || steps.build-pkgs.conclusion == 'success') }}
         working-directory: ./talos-kernel
         run: |
          mkdir -p _out
