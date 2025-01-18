@@ -27,12 +27,12 @@ on:
         required: false
 
 concurrency:
-  group: ${{ github.actor }}-build
+  group: ${{ github.actor }}-build-rpi
 
 jobs:
-  build:
-    name: Build
-    runs-on: ubuntu-latest
+  build-rpi:
+    name: Foundation kernel build
+    runs-on: buildjet-24vcpu-ubuntu-2204-arm
 
     permissions:
       contents: read
@@ -62,84 +62,84 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup tailscale
-        uses: tailscale/github-action@v2
-        with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:gha-talos-boot-assets
-          version: 1.78.0
-
-      - name: Generate tailscale keys
-        id: ts-keys
-        run: |
-         ts_access_token=$(curl --silent \
-            -d "client_id=${{ secrets.TS_OAUTH_CLIENT_ID }}" \
-            -d "client_secret=${{ secrets.TS_OAUTH_SECRET }}" \
-            "https://api.tailscale.com/api/v2/oauth/token" | jq -r '.access_token')
-          if [ "$ts_access_token" = "null" ]; then
-            echo "Tailscale API returned null access token"
-            curl_output=$(curl --silent \
-              -d "client_id=${{ secrets.TS_OAUTH_CLIENT_ID }}" \
-              -d "client_secret=${{ secrets.TS_OAUTH_SECRET }}" \
-              "https://api.tailscale.com/api/v2/oauth/token")
-            curl -s \
-              --form-string "token=${{ secrets.PUSHOVER_TOKEN }}" \
-              --form-string "user=${{ secrets.PUSHOVER_USER }}" \
-              --form-string "message=Failed to generate Tailscale access token. Curl output: $curl_output" \
-              https://api.pushover.net/1/messages.json
-            exit 1
-          fi
-          echo "::add-mask::$ts_access_token"
-
-          ts_auth_key=$(curl --silent --request POST \
-            --url 'https://api.tailscale.com/api/v2/tailnet/-/keys?all=true' \
-            --header "Authorization: Bearer $ts_access_token" \
-            --header 'Content-Type: application/json' \
-            --data '{
-            "capabilities": {
-              "devices": {
-                "create": {
-                  "reusable": true,
-                  "ephemeral": true,
-                  "preauthorized": true,
-                  "tags": ["tag:gha-talos-boot-assets"]
-                }
-              }
-            },
-            "expirySeconds": 300,
-            "description": "${{ github.run_id }}"
-          }' | jq -r '.key')
-          if [ "$ts_auth_key" = "null" ]; then
-            echo "Tailscale API returned null auth key"
-            curl_output=$(curl --silent --request POST \
-              --url 'https://api.tailscale.com/api/v2/tailnet/-/keys?all=true' \
-              --header "Authorization: Bearer $ts_access_token" \
-              --header 'Content-Type: application/json' \
-              --data '{
-              "capabilities": {
-                "devices": {
-                  "create": {
-                    "reusable": true,
-                    "ephemeral": true,
-                    "preauthorized": true,
-                    "tags": ["tag:gha-talos-boot-assets"]
-                  }
-                }
-              },
-              "expirySeconds": 300,
-              "description": "${{ github.run_id }}"
-            }')
-            echo "Curl output: $curl_output"
-            curl -s \
-              --form-string "token=${{ secrets.PUSHOVER_TOKEN }}" \
-              --form-string "user=${{ secrets.PUSHOVER_USER }}" \
-              --form-string "message=Failed to generate Tailscale auth key. Curl output: $curl_output" \
-              https://api.pushover.net/1/messages.json
-            exit 1
-          fi
-          echo "::add-mask::$ts_auth_key"
-          echo "ts_auth_key=$ts_auth_key" >> $GITHUB_OUTPUT
+#      - name: Setup tailscale
+#        uses: tailscale/github-action@v2
+#        with:
+#          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+#          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+#          tags: tag:gha-talos-boot-assets
+#          version: 1.78.0
+#
+#      - name: Generate tailscale keys
+#        id: ts-keys
+#        run: |
+#         ts_access_token=$(curl --silent \
+#            -d "client_id=${{ secrets.TS_OAUTH_CLIENT_ID }}" \
+#            -d "client_secret=${{ secrets.TS_OAUTH_SECRET }}" \
+#            "https://api.tailscale.com/api/v2/oauth/token" | jq -r '.access_token')
+#          if [ "$ts_access_token" = "null" ]; then
+#            echo "Tailscale API returned null access token"
+#            curl_output=$(curl --silent \
+#              -d "client_id=${{ secrets.TS_OAUTH_CLIENT_ID }}" \
+#              -d "client_secret=${{ secrets.TS_OAUTH_SECRET }}" \
+#              "https://api.tailscale.com/api/v2/oauth/token")
+#            curl -s \
+#              --form-string "token=${{ secrets.PUSHOVER_TOKEN }}" \
+#              --form-string "user=${{ secrets.PUSHOVER_USER }}" \
+#              --form-string "message=Failed to generate Tailscale access token. Curl output: $curl_output" \
+#              https://api.pushover.net/1/messages.json
+#            exit 1
+#          fi
+#          echo "::add-mask::$ts_access_token"
+#
+#          ts_auth_key=$(curl --silent --request POST \
+#            --url 'https://api.tailscale.com/api/v2/tailnet/-/keys?all=true' \
+#            --header "Authorization: Bearer $ts_access_token" \
+#            --header 'Content-Type: application/json' \
+#            --data '{
+#            "capabilities": {
+#              "devices": {
+#                "create": {
+#                  "reusable": true,
+#                  "ephemeral": true,
+#                  "preauthorized": true,
+#                  "tags": ["tag:gha-talos-boot-assets"]
+#                }
+#              }
+#            },
+#            "expirySeconds": 300,
+#            "description": "${{ github.run_id }}"
+#          }' | jq -r '.key')
+#          if [ "$ts_auth_key" = "null" ]; then
+#            echo "Tailscale API returned null auth key"
+#            curl_output=$(curl --silent --request POST \
+#              --url 'https://api.tailscale.com/api/v2/tailnet/-/keys?all=true' \
+#              --header "Authorization: Bearer $ts_access_token" \
+#              --header 'Content-Type: application/json' \
+#              --data '{
+#              "capabilities": {
+#                "devices": {
+#                  "create": {
+#                    "reusable": true,
+#                    "ephemeral": true,
+#                    "preauthorized": true,
+#                    "tags": ["tag:gha-talos-boot-assets"]
+#                  }
+#                }
+#              },
+#              "expirySeconds": 300,
+#              "description": "${{ github.run_id }}"
+#            }')
+#            echo "Curl output: $curl_output"
+#            curl -s \
+#              --form-string "token=${{ secrets.PUSHOVER_TOKEN }}" \
+#              --form-string "user=${{ secrets.PUSHOVER_USER }}" \
+#              --form-string "message=Failed to generate Tailscale auth key. Curl output: $curl_output" \
+#              https://api.pushover.net/1/messages.json
+#            exit 1
+#          fi
+#          echo "::add-mask::$ts_auth_key"
+#          echo "ts_auth_key=$ts_auth_key" >> $GITHUB_OUTPUT
 
       - name: Configure aws credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -148,46 +148,8 @@ jobs:
           aws-region: eu-north-1
           role-duration-seconds: 7200
 
-
       - name: Checkout workflow
         uses: actions/checkout@v4
-
-      - name: Terraform apply
-        id: terraform-apply
-        run: |
-          terraform init
-          terraform apply -auto-approve \
-            -var "ts_auth_key=${{ steps.ts-keys.outputs.ts_auth_key }}"
-          instance_amd64_id=$(terraform output --raw instance_amd64_id)
-          instance_arm64_id=$(terraform output --raw instance_arm64_id)
-          attempt=0
-          while ! tailscale ip $instance_amd64_id; do
-              attempt=$((attempt + 1))
-              if [ $attempt -gt 12 ]; then
-                  exit 1
-              fi
-              sleep 5
-          done
-          attempt=0
-          while ! tailscale ip $instance_arm64_id; do
-              attempt=$((attempt + 1))
-              if [ $attempt -gt 12 ]; then
-                  exit 1
-              fi
-              sleep 5
-          done
-          echo "instance_amd64_id=$instance_amd64_id" >> $GITHUB_OUTPUT
-          echo "instance_arm64_id=$instance_arm64_id" >> $GITHUB_OUTPUT
-
-      - name: Setup buildkit
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver: remote
-          endpoint: tcp://${{ steps.terraform-apply.outputs.instance_amd64_id }}:9999
-          platforms: linux/amd64
-          append: |
-            - endpoint: tcp://${{ steps.terraform-apply.outputs.instance_arm64_id }}:9999
-              platforms: linux/arm64
 
       - name: Checkout talos-kernel
         uses: actions/checkout@v4
@@ -198,7 +160,7 @@ jobs:
           ref: skylab
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build talos-kernel (for RPi)
+      - name: Build kernel
         id: build-rpi-kernel
         if: ${{ !failure() && !cancelled() && (inputs.build_kernel || steps.build-pkgs.conclusion == 'success') }}
         working-directory: ./talos-kernel
