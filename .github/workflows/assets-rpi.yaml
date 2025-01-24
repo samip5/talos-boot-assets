@@ -257,8 +257,8 @@ jobs:
           fq_image="$registry/talosctl:${{ inputs.release_tag }}@$(jq -j .\"containerimage.digest\" _out/meta)"
           cosign sign --yes --recursive "$fq_image"
 
-      - name: Terraform destroy
-        if: ${{ always() }}
-        run: |
-          terraform destroy -auto-approve \
-            -var "ts_auth_key=${{ steps.ts-keys.outputs.ts_auth_key }}"
+     # - name: Terraform destroy
+     #   if: ${{ always() }}
+     #   run: |
+     #     terraform destroy -auto-approve \
+     #       -var "ts_auth_key=${{ steps.ts-keys.outputs.ts_auth_key }}"
