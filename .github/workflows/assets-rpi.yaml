@@ -46,8 +46,8 @@ jobs:
       - name: Install crane
         uses: imjasonh/setup-crane@v0.4
 
-      - name: Setup terraform
-        uses: hashicorp/setup-terraform@v3
+ #     - name: Setup terraform
+ #       uses: hashicorp/setup-terraform@v3
 
       - name: Set release branch
         id: set-rel
@@ -141,12 +141,12 @@ jobs:
 #          echo "::add-mask::$ts_auth_key"
 #          echo "ts_auth_key=$ts_auth_key" >> $GITHUB_OUTPUT
 
-      - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::277707128529:role/talos-boot-assets-gha-terraform-buildkit
-          aws-region: eu-north-1
-          role-duration-seconds: 7200
+#      - name: Configure aws credentials
+#        uses: aws-actions/configure-aws-credentials@v4
+#        with:
+#          role-to-assume: arn:aws:iam::277707128529:role/talos-boot-assets-gha-terraform-buildkit
+#          aws-region: eu-north-1
+#          role-duration-seconds: 7200
 
       - name: Checkout workflow
         uses: actions/checkout@v4
