@@ -1,5 +1,5 @@
 ---
-name: Talos Boot Assets Generation (RPi)
+name: Talos Boot Assets Generation for RPi on AWS
 
 on:
   workflow_dispatch:
