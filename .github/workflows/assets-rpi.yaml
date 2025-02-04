@@ -218,7 +218,8 @@ jobs:
         with:
           path: talos
           repository: skyssolutions/talos
-          ref: release-1.9-skylab
+          #ref: release-1.9-skylab
+          ref: v1.9.3-skylab.1
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build talos
