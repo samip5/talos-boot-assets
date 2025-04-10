@@ -10,6 +10,11 @@ on:
       siderolabs_tag:
         description: Upstream release tag for extensions manifest
         required: true
+      build_extensions:
+        description: Build extensions
+        type: boolean
+        default: false
+        required: false
       build_talos:
         description: Build talos
         type: boolean
@@ -183,6 +188,57 @@ jobs:
           append: |
             - endpoint: tcp://${{ steps.terraform-apply.outputs.instance_arm64_id }}:9999
               platforms: linux/arm64
+
+      - name: Checkout extensions
+        if: ${{ !failure() && !cancelled() && (inputs.build_extensions || steps.build-pkgs.conclusion == 'success') }}
+        uses: actions/checkout@v4
+        with:
+          path: extensions
+          repository: samip5/siderolabs-extensions
+          #ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
+          ref: ${{ inputs.extensions_repo_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build extensions
+        if: ${{ !failure() && !cancelled() && (inputs.build_extensions || steps.build-pkgs.conclusion == 'success') }}
+        working-directory: ./extensions
+        run: |
+          make _out/bldr
+          registry="ghcr.io/${{ github.actor }}/siderolabs"
+          crane export ghcr.io/siderolabs/extensions:${{ inputs.siderolabs_tag }} | tar x -C internal/extensions/
+          for target in util-linux-tools iscsi-tools; do
+            make $target \
+              PLATFORM="linux/amd64,linux/arm64" \
+              PKGS="${{ inputs.release_tag }}" \
+              PKGS_PREFIX="$registry" \
+              REGISTRY="ghcr.io/${{ github.actor }}" \
+              TAG="${{ inputs.release_tag }}" \
+              PUSH="true" \
+              CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
+            tag="$(_out/bldr eval --target $target --build-arg TAG=${{ inputs.release_tag }} '{{.VERSION}}')"
+            digest="$(jq -j .\"containerimage.digest\" _out/meta)"
+            fq_image="${registry}/${target}:${tag}@${digest}"
+            cosign sign --yes --recursive "$fq_image"
+            echo "$fq_image" >> internal/extensions/image-digests
+            crane export "$fq_image" - | tar x -O --occurrence=1 manifest.yaml | yq -r ". += {\"$fq_image\": {\"author\": .metadata.author, \"description\": .metadata.description}} | del(.metadata, .version)" - >> internal/extensions/descriptions.yaml
+          done
+
+      - name: Build extensions manifest
+        if: ${{ !failure() && !cancelled() && (inputs.build_extensions || steps.build-pkgs.conclusion == 'success') }}
+        working-directory: ./extensions
+        run: |
+          mkdir -p _out
+          tagged_image="ghcr.io/${{ github.actor }}/siderolabs/extensions:${{ inputs.release_tag }}"
+          make docker-extensions \
+            PLATFORM="linux/amd64,linux/arm64" \
+            PKGS="${{ inputs.release_tag }}" \
+            PKGS_PREFIX="ghcr.io/${{ github.actor }}/siderolabs" \
+            REGISTRY="ghcr.io/${{ github.actor }}" \
+            TAG="${{ inputs.release_tag }}" \
+            TARGET_ARGS="--tag=${tagged_image} --push=true" \
+            CI_ARGS="--metadata-file _out/meta --build-arg=BUILDKIT_MULTI_PLATFORM=1"
+          fq_image="$tagged_image@$(jq -j .\"containerimage.digest\" _out/meta)"
+          cosign sign --yes --recursive "$fq_image"
 
       - name: Checkout talos-kernel
         uses: actions/checkout@v4
