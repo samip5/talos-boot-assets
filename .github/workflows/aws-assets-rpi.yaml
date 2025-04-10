@@ -25,6 +25,10 @@ on:
         type: boolean
         default: true
         required: false
+      extensions_repo_ref:
+        description: Git reference for extensions
+        default: ccd85fbc443535d08cacc7fe74c225a38ab3f669
+        required: true
 
 concurrency:
   group: ${{ github.actor }}-build
@@ -194,7 +198,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: extensions
-          repository: samip5/siderolabs-extensions
+          repository: skyssolutions/talos-extensions
           #ref: ${{ steps.set-rel.outputs.release_branch }}-skylab
           ref: ${{ inputs.extensions_repo_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
