@@ -59,13 +59,6 @@ jobs:
           release_branch=release-$(grep -Eo '[0-9]\.[0-9]+' <<< ${{ inputs.release_tag }})
           echo "release_branch=$release_branch" >> $GITHUB_OUTPUT
 
-      - name: Login ghcr.io
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup tailscale
         uses: tailscale/github-action@v2
         with:
@@ -192,6 +185,13 @@ jobs:
           append: |
             - endpoint: tcp://${{ steps.terraform-apply.outputs.instance_arm64_id }}:9999
               platforms: linux/arm64
+    
+      - name: Login ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout extensions
         if: ${{ !failure() && !cancelled() && (inputs.build_extensions || steps.build-pkgs.conclusion == 'success') }}
